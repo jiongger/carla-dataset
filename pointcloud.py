@@ -80,9 +80,9 @@ class pointcloud:
         rotz[1,1] = cos(-diff[2]/180*pi)
         rotz[2,2] = 1
         # set rotation matrix for rotations @ (roll, pitch, yaw)
-        rota = rota.dot(rotx)
-        rota = rota.dot(roty)
         rota = rota.dot(rotz)
+        rota = rota.dot(roty)
+        rota = rota.dot(rotx)
 
         rot_cloud = []
         for point in self.cloud:
