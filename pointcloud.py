@@ -1,5 +1,5 @@
 import numpy as np
-from random import randint
+from random import randint, sample
 
 from math import sin, cos, tan, pi
 
@@ -12,6 +12,7 @@ class pointcloud:
             self.frame=-1
             self.timestamp=-1.0
             self.merged_flag=False
+            self.number_of_points=-1
     
 
     def load(self, infile, color):
@@ -43,7 +44,7 @@ class pointcloud:
     
 
     def translation(self, diff): # diff:=(diff_x, diff_y, diff_z) @ any array-like objects
-        assert len(self.cloud) > 0
+        assert self.number_of_points >=0
         assert len(diff) == 3
         diff = np.asarray(diff)
         diff = np.hstack((diff, np.zeros(3))) # extend diff to RGB dimensions
@@ -52,7 +53,7 @@ class pointcloud:
 
     def rotation(self, diff): # diff:=(roll, pitch, yaw) @ any array-like objects
     # (!important!) all roll, pitch, yaw should be measured in degrees instead of rads
-        assert len(self.cloud) > 0
+        assert self.number_of_points >= 0
         assert len(diff) == 3
 
         rotx = np.zeros((3,3))
@@ -96,15 +97,15 @@ class pointcloud:
         # remember to transform both point cloud to one consistent coordinate system first
         # via rotation() and translation() method
         assert isinstance(pc, pointcloud)
-        assert len(self.cloud) > 0
-        assert len(pc.cloud) > 0
+        assert self.number_of_points >= 0
+        assert pc.number_of_points >= 0
 
         self.cloud = np.concatenate([self.cloud, pc.cloud])
         self.merged_flag = True
         self.number_of_points = len(self.cloud)
 
 
-    def copy(self):
+    def copy(self): # get a copy of current point cloud
         pc = pointcloud()
         pc.frame = self.frame
         pc.timestamp = self.timestamp
@@ -119,7 +120,7 @@ class pointcloud:
 
 
     def save_to_disk(self, filename, points_only_flag=False, with_color_flag=True):
-        assert len(self.cloud) > 0
+        assert self.number_of_points >= 0
         assert isinstance(filename, str)
 
         save_file = open(filename, 'w')
@@ -136,6 +137,14 @@ class pointcloud:
                 print(point[0], point[1], point[2], file=save_file) # location:= x,y,z
             else:
                 print(point[0], point[1], point[2], point[3], point[4], point[5], file=save_file) # locatio:= x,y,z color:=R,G,B
+
+
+    def downsampling(self, mode, ratio):
+        if mode == 'random':
+            self.cloud = sample(self.cloud, int(self.number_of_points*ratio))
+        elif mode == 'fixed-step':
+            self.cloud = self.cloud[::int(1/ratio)]
+        self.number_of_points = len(self.cloud)
 
 
 # debug
