@@ -3,6 +3,7 @@ from pointcloud import pointcloud
 import argparse
 import os
 import sys
+import re
 
 argparser = argparse.ArgumentParser(
     description=__doc__
@@ -90,6 +91,11 @@ def main():
                     ego_pc_file_list.append(os.path.join(FLAGS.path, filestr))
                     count = count + 1
                     total_file_count = total_file_count + 1
+        ego_pc_file_list.sort( 
+            key = lambda name:
+                int(re.findall('\d+', os.path.basename(name).replace('%s%d_%s' %(FLAGS.prefix,index,FLAGS.suffix), ''))[0]) # extract timestamp in filename
+        ) # execute sort to keep timestamp consistency
+        print(ego_pc_file_list)
         pc_file_list.append(ego_pc_file_list)
         print('retrieved %d shots @ vehicle %d' %(count, index))
     print('retrieved %d shots from %d vehicles in total' %(total_file_count, FLAGS.number_of_coperception_vehicles))
