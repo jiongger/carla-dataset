@@ -21,7 +21,8 @@ FLAGS.add_argument(
 FLAGS.add_argument(
     'filename_list',
     metavar='F',
-    type=list,
+    type=str,
+    nargs='+',
     help='list of path/to/point/cloud/file'
 )
 FLAGS.add_argument(
@@ -83,6 +84,7 @@ FLAGS.add_argument(
 FLAGS.add_argument(
     '--exception',
     metavar='E',
+    default='stop',
     choices=['skip', 'stop'],
     help='specify how to delta with exception(default:skip)'
 )
@@ -104,22 +106,17 @@ def main():
                 print('ERROR: cannot open file %s, aborted.' %filename)
                 sys.exit()
         pc = pointcloud(pc_file)
-        number_of_points = number_of_points + len(pc.number_of_points)
+        number_of_points = number_of_points + pc.number_of_points
         pc_list.append(pc)
     
     if number_of_points > FLAGS.upper_limitation_of_number_of_points:
         for pc in pc_list:
             pc.downsampling('fixed-step', FLAGS.upper_limitation_of_number_of_points/number_of_points)
 
-    if FLAGS.mode == '3d':
-        plot_core.plot_3d(pc_list, FLAGS.axis, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi)
+    if FLAGS.mode == '2d':
+        plot_core.plot_2d(pc_list, FLAGS.axis, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi)
     else:
-        plot_core.plot_2d(pc_list, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi)
+        plot_core.plot_3d(pc_list, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi)
 
 if __name__ == '__main__':
-    try:
-        main()
-    except:
-        pass
-    finally:
-        print('\ndone\n')
+    main()

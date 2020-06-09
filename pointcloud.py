@@ -13,6 +13,7 @@ class pointcloud:
             self.timestamp=-1.0
             self.merged_flag=False
             self.number_of_points=-1
+            self.has_a_head=False
     
 
     def load(self, infile, color):
@@ -26,12 +27,28 @@ class pointcloud:
         if color is None:
             color = [randint(0,7)*32, randint(0,7)*32, randint(0,7)*32]
         assert len(color) == 3
-        self.frame = infos[0]
-        self.timestamp = infos[1]
-        self.location = np.asarray((infos[2], infos[3], infos[4]))
-        self.orientation = np.asarray((infos[5], infos[6], infos[7]))
-        self.horizontal_angle = infos[8]
-        self.channels = infos[9]
+        if len(infos) == 10: # parse the head 
+            self.frame = infos[0]
+            self.timestamp = infos[1]
+            self.location = np.asarray((infos[2], infos[3], infos[4]))
+            self.orientation = np.asarray((infos[5], infos[6], infos[7]))
+            self.horizontal_angle = infos[8]
+            self.channels = infos[9]
+            self.has_a_head = True
+        else:
+            point = [float(x) for x in raw_cloud[0].rstrip('\n').split(' ')] # check if it's a invaild header
+            if len(point) != len(infos):
+                raise Exception("the point cloud file have a invaild header", infos)
+            # the point cloud file do not have a header
+            print('\nWARNING: the point cloud file do not have a header\n')
+            self.frame = -1
+            self.timestamp = -1.0
+            self.location = np.asarray((0,0,0))
+            self.orientation = np.asarray((0,0,0))
+            self.horizontal_angle = -1.0
+            self.channels = -1
+            self.has_a_head = False
+            raw_cloud = raw_data
         points = []
         for line in raw_cloud:
             point = [float(x) for x in line.rstrip('\n').split(' ')]

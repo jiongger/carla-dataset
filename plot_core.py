@@ -1,17 +1,18 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-from functools import singledispatch
 
 from pointcloud import pointcloud
 
 def plot_3d(pc_list, size=0.01, marker='.', title='', save=None, show_figure=True, dpi=320):
-    scatter3d = Axes3D(plt.gcf()),
+    scatter3d = Axes3D(plt.figure())
 
-    for pc in pc_list:
-        x,y,z = pc[:,0], pc[:,1], pc[:,2]
-        color = pc[0,3], pc[0,4], pc[0,5]
+    for i,pc in enumerate(pc_list):
+        print('ploting %d/%d...' %(i,len(pc_list)))
+        x,y,z = pc.cloud[:,0], pc.cloud[:,1], pc.cloud[:,2]
+        color = pc.cloud[:,3:6]/255 # map color ranging(0,255) to (0,1)
         scatter3d.scatter(x,y,z, marker=marker, s=size, c=color)
+    print('plot done %d/%d' %(len(pc_list),len(pc_list)))
     
     plt.title(title)
     if save is not None:
@@ -22,18 +23,20 @@ def plot_3d(pc_list, size=0.01, marker='.', title='', save=None, show_figure=Tru
 def plot_2d(pc_list, axis=2, size=0.01, marker='.', title='', save=None, show_figure=True, dpi=320):
     axis = int(axis)
     assert axis<=2 and axis>=0
+    plt.figure()
 
     for i,pc in enumerate(pc_list):
         print('ploting %d/%d...' %(i,len(pc_list)))
-        x,y,z = pc[:,0], pc[:,1], pc[:,2]
-        color = pc[0,3], pc[0,4], pc[0,5]
+        x,y,z = pc.cloud[:,0], pc.cloud[:,1], pc.cloud[:,2]
+        color = pc.cloud[:,3:6]/255 # map color ranging(0,255) to (0,1)
         if axis == 0:
             plt.scatter(y,z, marker=marker, s=size, c=color)
         elif axis == 1:
             plt.scatter(x,z, marker=marker, s=size, c=color)
         elif axis == 2:
             plt.scatter(x,y, marker=marker, s=size, c=color)
-    
+    print('plot done %d/%d' %(len(pc_list),len(pc_list)))
+
     plt.title(title)
     if save is not None:
         plt.savefig(str(save), dpi=dpi)
