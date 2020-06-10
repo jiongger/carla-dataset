@@ -318,8 +318,9 @@ def main():
         
         # debug mode
         if args.mode.find('debug') >= 0:
-
-            debug = world.debug            
+            
+            some_time = 0.1
+            debug = world.debug
             def draw_transform(debug, trans, col=carla.Color(255, 0, 0), lt=-1):
                 debug.draw_arrow(
                     trans.location, trans.location + trans.get_forward_vector(),
@@ -358,18 +359,18 @@ def main():
                             draw_waypoint_union(debug, current_w[index], next_w[index], cyan if current_w[index].is_junction else red, 10)
                         else:
                             draw_waypoint_union(debug, current_w[index], next_w[index], cyan if current_w[index].is_junction else green, 10)
-                        debug.draw_string(current_w[index].transform.location, str('id %d\n%15.0f km/h' % (vehicle.id, 3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, 0.1)
+                        debug.draw_string(current_w[index].transform.location, str('id %d\n%15.0f km/h' % (vehicle.id, 3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, some_time)
                         draw_transform(debug, current_w[index].transform, white, 10)
 
                 # draw vehicle bounding box
                 for vehicle in debug_list:
                     # generate bounding box
                     bbox = carla.BoundingBox(vehicle.get_transform().location, vehicle.bounding_box.extent)
-                    debug.draw_box(bbox, vehicle.get_transform().rotation, 0.1, red, 0.1)
+                    debug.draw_box(bbox, vehicle.get_transform().rotation, 0.1, red, some_time)
 
                 # Update the current waypoint and sleep for some time
                 current_w = next_w.copy()                 
-                time.sleep(0.1)
+                time.sleep(some_time)
                     
                 # carla tick
                 if args.sync and synchronous_master:
