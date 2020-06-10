@@ -21,6 +21,15 @@ import random
 
 from math import sin, cos, tan, pi, sqrt
 
+red = carla.Color(255, 0, 0)
+green = carla.Color(0, 255, 0)
+blue = carla.Color(47, 210, 231)
+cyan = carla.Color(0, 255, 255)
+yellow = carla.Color(255, 255, 0)
+orange = carla.Color(255, 162, 0)
+white = carla.Color(255, 255, 255)
+
+
 def main():
     argparser = argparse.ArgumentParser(
         description=__doc__)
@@ -152,7 +161,7 @@ def main():
             y = y + spawn_points[spawn_point_index].location.y/len(selected_spawn_points)
             z = z + spawn_points[spawn_point_index].location.z/len(selected_spawn_points)
         # set spectator above the center 
-        location = carla.Location(x-100,y,z+100)
+        location = carla.Location(x-30,y,z+30)
         rotation = carla.Rotation(-45,0,0)
         transform = carla.Transform(location, rotation)
         spectator.set_transform(transform)
@@ -234,7 +243,7 @@ def main():
         ego1_gnss.listen(lambda gnss: ego1_gnss_callback(gnss))
         sensors_list.append(ego1_gnss)
         # set gnss @ ego2
-        ego2_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego[0], attachment_type=carla.AttachmentType.Rigid)
+        ego2_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego[1], attachment_type=carla.AttachmentType.Rigid)
         if args.mode == 'common':
             ego2_gnss_log = open('ego2_gnss.log', 'w')
         else:
@@ -307,31 +316,14 @@ def main():
         ego2_lidar.listen(ego2_lidar_callback)
         sensors_list.append(ego2_lidar)
         
-        # draw ego vehicle actor bounding box
-        debug = world.debug
-        world_snapshot = world.get_snapshot()
-        for actor_snapshot in world_snapshot:
-            actual_actor = world.get_actor(actor_snapshot.id)
-            if actual_actor.id in ego_vehicles_list:
-                debug.draw_box(ego[ego_vehicles_list.index(actual_actor.id)].bounding_box, actor_snapshot.get_transform().rotation, 0.1, carla.Color(255,0,0,0),0)
-                print(str(ego[ego_vehicles_list.index(actual_actor.id)].bounding_box))
-        
-        # debug vehicle trail
+        # debug mode
         if args.mode.find('debug') >= 0:
 
-            red = carla.Color(255, 0, 0)
-            green = carla.Color(0, 255, 0)
-            blue = carla.Color(47, 210, 231)
-            cyan = carla.Color(0, 255, 255)
-            yellow = carla.Color(255, 255, 0)
-            orange = carla.Color(255, 162, 0)
-            white = carla.Color(255, 255, 255)
-
+            debug = world.debug            
             def draw_transform(debug, trans, col=carla.Color(255, 0, 0), lt=-1):
                 debug.draw_arrow(
                     trans.location, trans.location + trans.get_forward_vector(),
                     thickness=0.05, arrow_size=0.1, color=col, life_time=lt)
-
             def draw_waypoint_union(debug, w0, w1, color=carla.Color(255, 0, 0), lt=5):
                 debug.draw_line(
                     w0.transform.location + carla.Location(z=0.25),
@@ -341,42 +333,56 @@ def main():
 
             current_map = world.get_map()
             debug_list = []
+            # find debug vehicle
             if args.mode == 'debug-all':
                 debug_list = world.get_actors(vehicles_list)
             elif args.mode == 'debug-ego':
                 debug_list = ego
+            # preprocess debug vehicle waypoints
             current_w = []
             for vehicle in debug_list:
                 current_w.append(current_map.get_waypoint(vehicle.get_location()))
+            # debug loop
             while True:
+                # find next debug vehicle waypoints
                 next_w = []
                 for vehicle in debug_list:
                     next_w.append(current_map.get_waypoint(vehicle.get_location(), lane_type=carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk ))
+                # draw vehicle trail
                 for index, vehicle in enumerate(debug_list):
                     # Check if the vehicle is moving
                     if next_w[index] != current_w[index]:
                         vector = vehicle.get_velocity()
                         # Check if the vehicle is on a sidewalk
                         if current_w[index].lane_type == carla.LaneType.Sidewalk:
-                            draw_waypoint_union(debug, current_w[index], next_w[index], cyan if current_w[index].is_junction else red, 60)
+                            draw_waypoint_union(debug, current_w[index], next_w[index], cyan if current_w[index].is_junction else red, 10)
                         else:
-                            draw_waypoint_union(debug, current_w[index], next_w[index], cyan if current_w[index].is_junction else green, 60)
-                        debug.draw_string(current_w[index].transform.location, str('%15.0f km/h' % (3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, 60)
-                        draw_transform(debug, current_w[index].transform, white, 60)
-                # Update the current waypoint and sleep for some time
-                current_w = next_w.copy() 
-                time.sleep(1)
+                            draw_waypoint_union(debug, current_w[index], next_w[index], cyan if current_w[index].is_junction else green, 10)
+                        debug.draw_string(current_w[index].transform.location, str('id %d\n%15.0f km/h' % (vehicle.id, 3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, 0.1)
+                        draw_transform(debug, current_w[index].transform, white, 10)
 
+                # draw vehicle bounding box
+                for vehicle in debug_list:
+                    # generate bounding box
+                    bbox = carla.BoundingBox(vehicle.get_transform().location, vehicle.bounding_box.extent)
+                    debug.draw_box(bbox, vehicle.get_transform().rotation, 0.1, red, 0.1)
+
+                # Update the current waypoint and sleep for some time
+                current_w = next_w.copy()                 
+                time.sleep(0.1)
+                    
+                # carla tick
                 if args.sync and synchronous_master:
                     world.tick()
                 else:
                     world.wait_for_tick()
 
-        while True:
-            if args.sync and synchronous_master:
-                world.tick()
-            else:
-                world.wait_for_tick()
+        else:
+            while True:
+                if args.sync and synchronous_master:
+                    world.tick()
+                else:
+                    world.wait_for_tick()
             
     
     finally:
