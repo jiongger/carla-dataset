@@ -93,7 +93,7 @@ def main():
                     total_file_count = total_file_count + 1
         ego_pc_file_list.sort( 
             key = lambda name:
-                int(re.findall('\d+', os.path.basename(name).replace('%s%d_%s' %(FLAGS.prefix,index,FLAGS.suffix), ''))[0]) # extract timestamp in filename
+                int(re.findall(r'\d+', os.path.basename(name).replace('%s%d_%s' %(FLAGS.prefix,index,FLAGS.suffix), ''))[0]) # extract timestamp in filename
         ) # execute sort to keep timestamp consistency
         pc_file_list.append(ego_pc_file_list)
         print('retrieved %d shots @ vehicle %d' %(count, index))
