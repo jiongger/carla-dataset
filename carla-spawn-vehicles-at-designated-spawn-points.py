@@ -340,36 +340,37 @@ def main():
                 debug.draw_point(w1.transform.location + carla.Location(z=0.25), 0.1, color, lt, False)
 
             current_map = world.get_map()
-            vehicle1 = ego[0]
-            vehicle2 = ego[1]
-            current_w1 = current_map.get_waypoint(vehicle1.get_location())
-            current_w2 = current_map.get_waypoint(vehicle2.get_location())
+            debug_list = []
+            if args.mode == 'debug-all':
+                debug_list = world.get_actors(vehicles_list)
+            elif args.mode == 'debug-ego':
+                debug_list = ego
+            current_w = []
+            for vehicle in debug_list:
+                current_w.append(current_map.get_waypoint(vehicle.get_location()))
             while True:
-                next_w1 = current_map.get_waypoint(vehicle1.get_location(), lane_type=carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk )
-                next_w2 = current_map.get_waypoint(vehicle2.get_location(), lane_type=carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk )
-                # Check if the vehicle is moving
-                if next_w1.id != current_w1.id:
-                    vector = vehicle1.get_velocity()
-                    # Check if the vehicle is on a sidewalk
-                    if current_w1.lane_type == carla.LaneType.Sidewalk:
-                        draw_waypoint_union(debug, current_w1, next_w1, cyan if current_w1.is_junction else red, 60)
-                    else:
-                        draw_waypoint_union(debug, current_w1, next_w1, cyan if current_w1.is_junction else green, 60)
-                    debug.draw_string(current_w1.transform.location, str('%15.0f km/h' % (3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, 60)
-                    draw_transform(debug, current_w1.transform, white, 60)
-                if next_w2.id != current_w2.id:
-                    vector = vehicle2.get_velocity()
-                    # Check if the vehicle is on a sidewalk
-                    if current_w2.lane_type == carla.LaneType.Sidewalk:
-                        draw_waypoint_union(debug, current_w2, next_w2, cyan if current_w2.is_junction else red, 60)
-                    else:
-                        draw_waypoint_union(debug, current_w2, next_w2, cyan if current_w2.is_junction else green, 60)
-                    debug.draw_string(current_w2.transform.location, str('%15.0f km/h' % (3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, 60)
-                    draw_transform(debug, current_w2.transform, white, 60)
+                next_w = []
+                for vehicle in debug_list:
+                    next_w.append(current_map.get_waypoint(vehicle.get_location(), lane_type=carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk ))
+                for index, vehicle in enumerate(debug_list):
+                    # Check if the vehicle is moving
+                    if next_w[index] != current_w[index]:
+                        vector = vehicle.get_velocity()
+                        # Check if the vehicle is on a sidewalk
+                        if current_w[index].lane_type == carla.LaneType.Sidewalk:
+                            draw_waypoint_union(debug, current_w[index], next_w[index], cyan if current_w[index].is_junction else red, 60)
+                        else:
+                            draw_waypoint_union(debug, current_w[index], next_w[index], cyan if current_w[index].is_junction else green, 60)
+                        debug.draw_string(current_w[index].transform.location, str('%15.0f km/h' % (3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, 60)
+                        draw_transform(debug, current_w[index].transform, white, 60)
                 # Update the current waypoint and sleep for some time
-                current_w1 = next_w1
-                current_w2 = next_w2
+                current_w = next_w.copy() 
                 time.sleep(1)
+
+                if args.sync and synchronous_master:
+                    world.tick()
+                else:
+                    world.wait_for_tick()
 
         while True:
             if args.sync and synchronous_master:
