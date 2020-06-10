@@ -19,7 +19,7 @@ import argparse
 import logging
 import random
 
-from math import sin, cos, tan, pi
+from math import sin, cos, tan, pi, sqrt
 
 def main():
     argparser = argparse.ArgumentParser(
@@ -64,11 +64,19 @@ def main():
         default=2.0,
         type=float,
         help='delay in seconds between spawns (default: 2.0)')
+    argparser.add_argument(
+        '--mode',
+        metavar='M',
+        default='common',
+        type=str,
+        choices=['debug-ego', 'debug-all', 'common'],
+        help='debug mode disable all file output')
     args = argparser.parse_args()
 
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
 
     vehicles_list = []
+    ego_vehicles_list = []
     sensors_list = []
     client = carla.Client(args.host, args.port)
     client.set_timeout(10.0)
@@ -164,27 +172,27 @@ def main():
         batch.append(SpawnActor(ego_bp,ego2_transform).then(SetAutopilot(FutureActor, True, traffic_manager.get_port())))
         
         # carla work (convert Carla.SpawnActor to Carla.Vehicle)
-        ego_list = []
+        ego = []
         for response in client.apply_batch_sync(batch, synchronous_master):
             if response.error:
                 logging.error(response.error)
             else:
                 vehicles_list.append(response.actor_id)
-                ego_list.append(world.get_actor(response.actor_id))
-        ego1 = ego_list[0]
-        ego2 = ego_list[1]
+                ego_vehicles_list.append(response.actor_id)
+                ego.append(world.get_actor(response.actor_id))
         # calculate vehicle 3d parameters
-        ego1_bbox = ego1.bounding_box
-        ego1_length = ego1_bbox.extent.x + ego1_bbox.location.x
-        ego1_width = ego1_bbox.extent.y + ego1_bbox.location.y
-        ego1_height = ego1_bbox.extent.z + ego1_bbox.location.z
-        ego1_center = ego1_bbox.location
-        ego2_bbox = ego2.bounding_box
-        ego2_length = ego2_bbox.extent.x + ego2_bbox.location.x
-        ego2_width = ego2_bbox.extent.y + ego2_bbox.location.y
-        ego2_height = ego2_bbox.extent.z + ego2_bbox.location.z
-        ego2_center = ego2_bbox.location
-
+        ego_bbox = []
+        ego_length = []
+        ego_width = []
+        ego_height = []
+        ego_center = []
+        for v in ego:
+            ego_bbox.append(v.bounding_box)
+            ego_length.append(v.bounding_box.extent.x + v.bounding_box.location.x)
+            ego_width.append(v.bounding_box.extent.y + v.bounding_box.location.y)
+            ego_height.append(v.bounding_box.extent.z + v.bounding_box.location.z)
+            ego_center.append(v.bounding_box.location)
+        
         # find gnss blueprint
         gnss_bp = world.get_blueprint_library().find('sensor.other.gnss')
         gnss_location = carla.Location(0,0,0)
@@ -206,15 +214,18 @@ def main():
         lidar_bp.set_attribute('upper_fov', str(60))
         lidar_bp.set_attribute('lower_fov', str(-30))
         lidar_bp.set_attribute('range',str(50))
-        ego1_lidar_location = carla.Location(0,0,tan(pi/6)*ego1_length/2 + ego1_height - ego1_center.z + 0.1)
-        ego2_lidar_location = carla.Location(0,0,tan(pi/6)*ego2_length/2 + ego2_height - ego2_center.z + 0.1)
+        ego1_lidar_location = carla.Location(0,0,tan(pi/6)*ego_length[0]/2 + ego_height[0] - ego_center[0].z + 0.1)
+        ego2_lidar_location = carla.Location(0,0,tan(pi/6)*ego_length[1]/2 + ego_height[1] - ego_center[1].z + 0.1)
         lidar_rotation = carla.Rotation(90,0,0)
         ego1_lidar_transform = carla.Transform(ego1_lidar_location,lidar_rotation)
         ego2_lidar_transform = carla.Transform(ego2_lidar_location,lidar_rotation)
 
         # set gnss @ ego1
-        ego1_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego1, attachment_type=carla.AttachmentType.Rigid)
-        ego1_gnss_log = open('ego1_gnss.log', 'w')
+        ego1_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego[0], attachment_type=carla.AttachmentType.Rigid)
+        if args.mode == 'common':
+            ego1_gnss_log = open('ego1_gnss.log', 'w')
+        else:
+            ego1_gnss_log = None
         def ego1_gnss_callback(gnss):
             print(gnss.frame, gnss.timestamp, 
             gnss.transform.location.x, gnss.transform.location.y, gnss.transform.location.z,
@@ -223,8 +234,11 @@ def main():
         ego1_gnss.listen(lambda gnss: ego1_gnss_callback(gnss))
         sensors_list.append(ego1_gnss)
         # set gnss @ ego2
-        ego2_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego2, attachment_type=carla.AttachmentType.Rigid)
-        ego2_gnss_log = open('ego2_gnss.log', 'w')
+        ego2_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego[0], attachment_type=carla.AttachmentType.Rigid)
+        if args.mode == 'common':
+            ego2_gnss_log = open('ego2_gnss.log', 'w')
+        else:
+            ego2_gnss_log = None
         def ego2_gnss_callback(gnss):
             print(gnss.frame, gnss.timestamp, 
             gnss.transform.location.x, gnss.transform.location.y, gnss.transform.location.z,
@@ -234,8 +248,11 @@ def main():
         sensors_list.append(ego2_gnss)
 
         # set imu @ ego1
-        ego1_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego1, attachment_type=carla.AttachmentType.Rigid)
-        ego1_imu_log = open('ego1_imu.log', 'w')
+        ego1_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego[0], attachment_type=carla.AttachmentType.Rigid)
+        if args.mode == 'common':
+            ego1_imu_log = open('ego1_imu.log', 'w')
+        else:
+            ego1_imu_log = None
         def ego1_imu_callback(imu):
             print(imu.frame, imu.timestamp, 
             imu.transform.location.x, imu.transform.location.y, imu.transform.location.z, 
@@ -246,8 +263,11 @@ def main():
         ego1_imu.listen(lambda imu: ego1_imu_callback(imu))
         sensors_list.append(ego1_imu)
         # set imu @ ego2
-        ego2_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego2, attachment_type=carla.AttachmentType.Rigid)
-        ego2_imu_log = open('ego2_imu.log', 'w')
+        ego2_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego[1], attachment_type=carla.AttachmentType.Rigid)
+        if args.mode == 'common':
+            ego2_imu_log = open('ego2_imu.log', 'w')
+        else:
+            ego2_imu_log = None
         def ego2_imu_callback(imu):
             print(imu.frame, imu.timestamp, 
             imu.transform.location.x, imu.transform.location.y, imu.transform.location.z, 
@@ -259,37 +279,104 @@ def main():
         sensors_list.append(ego2_imu)
 
         # set lidar @ ego1
-        ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego1,attachment_type=carla.AttachmentType.SpringArm)
+        ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego[0],attachment_type=carla.AttachmentType.SpringArm)
         def ego1_lidar_callback(LidarMeasurement):
-            save = open('ego1_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
-            LidarMeasurement.save_to_disk('ego1_lidar_measurement_%d.ply' %LidarMeasurement.frame)
-            print(LidarMeasurement.frame, LidarMeasurement.timestamp,
-            LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
-            LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
-            LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
-            for point in LidarMeasurement:
-                print(point.x, point.y, point.z, file=save)
+            if args.mode == 'common':
+                save = open('ego1_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
+                LidarMeasurement.save_to_disk('ego1_lidar_measurement_%d.ply' %LidarMeasurement.frame)
+                print(LidarMeasurement.frame, LidarMeasurement.timestamp,
+                LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
+                LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
+                LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
+                for point in LidarMeasurement:
+                    print(point.x, point.y, point.z, file=save)
         ego1_lidar.listen(ego1_lidar_callback)
         sensors_list.append(ego1_lidar)
         # set lidar @ ego2
-        ego2_lidar = world.spawn_actor(lidar_bp,ego2_lidar_transform,attach_to=ego2,attachment_type=carla.AttachmentType.SpringArm)
+        ego2_lidar = world.spawn_actor(lidar_bp,ego2_lidar_transform,attach_to=ego[1],attachment_type=carla.AttachmentType.SpringArm)
         def ego2_lidar_callback(LidarMeasurement):
-            save = open('ego2_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
-            LidarMeasurement.save_to_disk('ego2_lidar_measurement_%d.ply' %LidarMeasurement.frame)
-            print(LidarMeasurement.frame, LidarMeasurement.timestamp,
-            LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
-            LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
-            LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
-            for point in LidarMeasurement:
-                print(point.x, point.y, point.z, file=save)
+            if args.mode == 'common':
+                save = open('ego2_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
+                LidarMeasurement.save_to_disk('ego2_lidar_measurement_%d.ply' %LidarMeasurement.frame)
+                print(LidarMeasurement.frame, LidarMeasurement.timestamp,
+                LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
+                LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
+                LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
+                for point in LidarMeasurement:
+                    print(point.x, point.y, point.z, file=save)
         ego2_lidar.listen(ego2_lidar_callback)
         sensors_list.append(ego2_lidar)
         
+        # draw ego vehicle actor bounding box
+        debug = world.debug
+        world_snapshot = world.get_snapshot()
+        for actor_snapshot in world_snapshot:
+            actual_actor = world.get_actor(actor_snapshot.id)
+            if actual_actor.id in ego_vehicles_list:
+                debug.draw_box(ego[ego_vehicles_list.index(actual_actor.id)].bounding_box, actor_snapshot.get_transform().rotation, 0.1, carla.Color(255,0,0,0),0)
+                print(str(ego[ego_vehicles_list.index(actual_actor.id)].bounding_box))
+        
+        # debug vehicle trail
+        if args.mode.find('debug') >= 0:
+
+            red = carla.Color(255, 0, 0)
+            green = carla.Color(0, 255, 0)
+            blue = carla.Color(47, 210, 231)
+            cyan = carla.Color(0, 255, 255)
+            yellow = carla.Color(255, 255, 0)
+            orange = carla.Color(255, 162, 0)
+            white = carla.Color(255, 255, 255)
+
+            def draw_transform(debug, trans, col=carla.Color(255, 0, 0), lt=-1):
+                debug.draw_arrow(
+                    trans.location, trans.location + trans.get_forward_vector(),
+                    thickness=0.05, arrow_size=0.1, color=col, life_time=lt)
+
+            def draw_waypoint_union(debug, w0, w1, color=carla.Color(255, 0, 0), lt=5):
+                debug.draw_line(
+                    w0.transform.location + carla.Location(z=0.25),
+                    w1.transform.location + carla.Location(z=0.25),
+                    thickness=0.1, color=color, life_time=lt, persistent_lines=False)
+                debug.draw_point(w1.transform.location + carla.Location(z=0.25), 0.1, color, lt, False)
+
+            current_map = world.get_map()
+            vehicle1 = ego[0]
+            vehicle2 = ego[1]
+            current_w1 = current_map.get_waypoint(vehicle1.get_location())
+            current_w2 = current_map.get_waypoint(vehicle2.get_location())
+            while True:
+                next_w1 = current_map.get_waypoint(vehicle1.get_location(), lane_type=carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk )
+                next_w2 = current_map.get_waypoint(vehicle2.get_location(), lane_type=carla.LaneType.Driving | carla.LaneType.Shoulder | carla.LaneType.Sidewalk )
+                # Check if the vehicle is moving
+                if next_w1.id != current_w1.id:
+                    vector = vehicle1.get_velocity()
+                    # Check if the vehicle is on a sidewalk
+                    if current_w1.lane_type == carla.LaneType.Sidewalk:
+                        draw_waypoint_union(debug, current_w1, next_w1, cyan if current_w1.is_junction else red, 60)
+                    else:
+                        draw_waypoint_union(debug, current_w1, next_w1, cyan if current_w1.is_junction else green, 60)
+                    debug.draw_string(current_w1.transform.location, str('%15.0f km/h' % (3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, 60)
+                    draw_transform(debug, current_w1.transform, white, 60)
+                if next_w2.id != current_w2.id:
+                    vector = vehicle2.get_velocity()
+                    # Check if the vehicle is on a sidewalk
+                    if current_w2.lane_type == carla.LaneType.Sidewalk:
+                        draw_waypoint_union(debug, current_w2, next_w2, cyan if current_w2.is_junction else red, 60)
+                    else:
+                        draw_waypoint_union(debug, current_w2, next_w2, cyan if current_w2.is_junction else green, 60)
+                    debug.draw_string(current_w2.transform.location, str('%15.0f km/h' % (3.6 * sqrt(vector.x**2 + vector.y**2 + vector.z**2))), False, orange, 60)
+                    draw_transform(debug, current_w2.transform, white, 60)
+                # Update the current waypoint and sleep for some time
+                current_w1 = next_w1
+                current_w2 = next_w2
+                time.sleep(1)
+
         while True:
             if args.sync and synchronous_master:
                 world.tick()
             else:
                 world.wait_for_tick()
+            
     
     finally:
 
