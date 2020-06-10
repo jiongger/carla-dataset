@@ -4,7 +4,7 @@ import sys
 import time
 
 try:
-    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
+    sys.path.append(glob.glob('carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
@@ -102,6 +102,11 @@ def main():
         spawn_points = world.get_map().get_spawn_points()
         selected_spawn_points = [8,9,10,11,12,13,14,15,30,31,58,59,60,61,85,90,91,98,109,110,136,228,229,232,254,255,256,257,258,259,260,261]
         selected_ego_spawn_points = [31,85]
+        for ego_spawn_point in selected_spawn_points:
+            if ego_spawn_point not in selected_spawn_points:
+                selected_spawn_points.append(ego_spawn_point)
+        selected_spawn_points.sort()
+        selected_ego_spawn_points.sort()
         # @todo cannot import these directly.
         SpawnActor = carla.command.SpawnActor
         SetAutopilot = carla.command.SetAutopilot
@@ -129,14 +134,20 @@ def main():
                 vehicles_list.append(response.actor_id)
 
         # adjust spectator to proper position       
-        #spectator = world.get_spectator()
-        #transform = new_vehicle.get_transform()
-        #transform.location.z = transform.location.z + 100
-        #transform.location.x = transform.location.x - 100*cos(transform.rotation.yaw/180*pi)
-        #transform.location.y = transform.location.y - 100*sin(transform.rotation.yaw/180*pi)
-        #transform.rotation.pitch = -45.0
-        #spectator.set_transform(transform)
-        
+        spectator = world.get_spectator()
+        x = 0.0
+        y = 0.0
+        z = 0.0
+        # calculate center of spawn points
+        for spawn_point_index in selected_spawn_points:
+            x = x + spawn_points[spawn_point_index].location.x/len(selected_spawn_points)
+            y = y + spawn_points[spawn_point_index].location.y/len(selected_spawn_points)
+            z = z + spawn_points[spawn_point_index].location.z/len(selected_spawn_points)
+        # set spectator above the center 
+        location = carla.Location(x-100,y,z+100)
+        rotation = carla.Rotation(-45,0,0)
+        transform = carla.Transform(location, rotation)
+        spectator.set_transform(transform)
 
         # find ego vehicle blueprint
         ego_bp = world.get_blueprint_library().find('vehicle.tesla.model3')
