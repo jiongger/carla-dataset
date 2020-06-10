@@ -12,7 +12,6 @@ except IndexError:
     pass
 
 import carla
-
 # carla strandard
 
 import argparse
@@ -21,6 +20,7 @@ import random
 
 from math import sin, cos, tan, pi, sqrt
 
+# define some carla color
 red = carla.Color(255, 0, 0)
 green = carla.Color(0, 255, 0)
 blue = carla.Color(47, 210, 231)
@@ -364,8 +364,7 @@ def main():
 
                 # draw vehicle bounding box
                 for vehicle in debug_list:
-                    # generate bounding box
-                    bbox = carla.BoundingBox(vehicle.get_transform().location, vehicle.bounding_box.extent)
+                    bbox = carla.BoundingBox(vehicle.get_transform().location, vehicle.bounding_box.extent) # generate bounding box
                     debug.draw_box(bbox, vehicle.get_transform().rotation, 0.1, red, some_time)
 
                 # Update the current waypoint and sleep for some time
