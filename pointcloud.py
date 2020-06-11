@@ -5,6 +5,8 @@ from math import sin, cos, tan, pi
 
 class pointcloud:
 
+    attach_rotation = np.array((0, 90, 0)) # rotation:= roll, picth, yaw
+
     def __init__(self, infile=None, color=None):        
         if infile is not None:
             self.load(infile, color)        
@@ -31,7 +33,7 @@ class pointcloud:
             self.frame = infos[0]
             self.timestamp = infos[1]
             self.location = np.asarray((infos[2], infos[3], infos[4]))
-            self.orientation = np.asarray((infos[5], infos[6], infos[7]))
+            self.orientation = np.asarray((infos[5], infos[6], infos[7])) + self.attach_rotation
             self.horizontal_angle = infos[8]
             self.channels = infos[9]
             self.has_a_head = True
@@ -72,6 +74,7 @@ class pointcloud:
     # (!important!) all roll, pitch, yaw should be measured in degrees instead of rads
         assert self.number_of_points >= 0
         assert len(diff) == 3
+        diff = np.asarray(diff)
 
         rotx = np.zeros((3,3))
         roty = np.zeros((3,3))
@@ -168,8 +171,8 @@ class pointcloud:
 if __name__ == '__main__':
 
     master_pcfile = open('ego1_lidar_measurement_4464.txt', 'r')
-    assist_pcfile = open('ego1_lidar_measurement_4531.txt', 'r')
-    fuse_pcfile_name = 'ego11_4600.txt'
+    assist_pcfile = open('ego2_lidar_measurement_4465.txt', 'r')
+    fuse_pcfile_name = 'ego12_4466.txt'
 
     master_point_cloud = pointcloud(master_pcfile)
     assist_point_cloud = pointcloud(assist_pcfile)

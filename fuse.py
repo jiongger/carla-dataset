@@ -114,8 +114,8 @@ def main():
                 assist_pc.translation(assist_pc.location - master_pc.location)
                 master_pc.merge(assist_pc)
             if FLAGS.coordinate == 'G':
-                master_pc.rotation(master_pc.orientation)
-                master_pc.translation(master_pc.location)
+                master_pc.rotation(-master_pc.orientation)
+                master_pc.translation(-master_pc.location)
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)), True)
     
     elif FLAGS.order == 'V':
@@ -129,8 +129,8 @@ def main():
                 assist_pc.translation(assist_pc.location - master_pc.location)
                 master_pc.merge(assist_pc)            
             if FLAGS.coordinate == 'G':
-                master_pc.rotation(master_pc.orientation)
-                master_pc.translation(master_pc.location)
+                master_pc.rotation(-master_pc.orientation)
+                master_pc.translation(-master_pc.location)
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'ego%d.txt' %ego), True)
     
 
