@@ -38,7 +38,7 @@ class pointcloud:
         else:
             point = [float(x) for x in raw_cloud[0].rstrip('\n').split(' ')] # check if it's a invaild header
             if len(point) != len(infos):
-                raise Exception("the point cloud file have a invaild header", infos)
+                print('\nWARNING: the point cloud file have a invaild header, skipped\n')
             # the point cloud file do not have a header
             print('\nWARNING: the point cloud file do not have a header\n')
             self.frame = -1
