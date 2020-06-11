@@ -171,16 +171,11 @@ if __name__ == '__main__':
     assist_pcfile = open('ego1_lidar_measurement_4531.txt', 'r')
     fuse_pcfile_name = 'ego11_4600.txt'
 
-    ego1_lidar_loc = np.asarray([-85.1885986328125,145.4384307861328,1.863139033317566])
-    ego1_lidar_rot = np.asarray([2.6621016786521068e-06,6.830188794992864e-06,1.5997675657272339])
-    ego2_lidar_loc = np.asarray([-85.27458190917969,148.77401733398438,1.8592264652252197])
-    ego2_lidar_rot = np.asarray([5.373818225962168e-07,6.830188794992864e-06,61.20071792602539])
-
     master_point_cloud = pointcloud(master_pcfile)
     assist_point_cloud = pointcloud(assist_pcfile)
 
-    assist_point_cloud.rotation(ego2_lidar_rot-ego1_lidar_rot)
-    assist_point_cloud.translation(ego2_lidar_loc-ego1_lidar_loc)
+    assist_point_cloud.rotation(assist_point_cloud.orientation - master_point_cloud.orientation)
+    assist_point_cloud.translation(assist_point_cloud.location - master_point_cloud.location)
 
     master_point_cloud.merge(assist_point_cloud)
     master_point_cloud.save_to_disk(fuse_pcfile_name, True)
