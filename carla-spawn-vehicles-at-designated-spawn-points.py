@@ -240,7 +240,6 @@ def main():
             gnss.transform.location.x, gnss.transform.location.y, gnss.transform.location.z,
             gnss.transform.rotation.roll, gnss.transform.rotation.pitch, gnss.transform.rotation.yaw,
             gnss.latitude, gnss.longitude, gnss.altitude, file=ego1_gnss_log)
-        ego1_gnss.listen(lambda gnss: ego1_gnss_callback(gnss))
         sensors_list.append(ego1_gnss)
         # set gnss @ ego2
         ego2_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego[1], attachment_type=carla.AttachmentType.Rigid)
@@ -253,8 +252,10 @@ def main():
             gnss.transform.location.x, gnss.transform.location.y, gnss.transform.location.z,
             gnss.transform.rotation.roll, gnss.transform.rotation.pitch, gnss.transform.rotation.yaw,
             gnss.latitude, gnss.longitude, gnss.altitude, file=ego2_gnss_log)
-        ego2_gnss.listen(lambda gnss: ego2_gnss_callback(gnss))
         sensors_list.append(ego2_gnss)
+        # gnss 1&2: listen
+        ego1_gnss.listen(lambda gnss: ego1_gnss_callback(gnss))
+        ego2_gnss.listen(lambda gnss: ego2_gnss_callback(gnss))
 
         # set imu @ ego1
         ego1_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego[0], attachment_type=carla.AttachmentType.Rigid)
@@ -269,7 +270,6 @@ def main():
             imu.accelerometer.x, imu.accelerometer.y, imu.accelerometer.z, 
             imu.gyroscope.x, imu.gyroscope.y, imu.gyroscope.z, 
             imu.compass, file=ego1_imu_log)
-        ego1_imu.listen(lambda imu: ego1_imu_callback(imu))
         sensors_list.append(ego1_imu)
         # set imu @ ego2
         ego2_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego[1], attachment_type=carla.AttachmentType.Rigid)
@@ -284,8 +284,10 @@ def main():
             imu.accelerometer.x, imu.accelerometer.y, imu.accelerometer.z, 
             imu.gyroscope.x, imu.gyroscope.y, imu.gyroscope.z, 
             imu.compass, file=ego2_imu_log)
-        ego2_imu.listen(lambda imu: ego2_imu_callback(imu))
         sensors_list.append(ego2_imu)
+        # imu 1&2: listen
+        ego1_imu.listen(lambda imu: ego1_imu_callback(imu))
+        ego2_imu.listen(lambda imu: ego2_imu_callback(imu))
 
         # set lidar @ ego1
         ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego[0],attachment_type=carla.AttachmentType.SpringArm)
@@ -299,7 +301,6 @@ def main():
                 LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
                 for point in LidarMeasurement:
                     print(point.x, point.y, point.z, file=save)
-        ego1_lidar.listen(ego1_lidar_callback)
         sensors_list.append(ego1_lidar)
         # set lidar @ ego2
         ego2_lidar = world.spawn_actor(lidar_bp,ego2_lidar_transform,attach_to=ego[1],attachment_type=carla.AttachmentType.SpringArm)
@@ -313,8 +314,10 @@ def main():
                 LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
                 for point in LidarMeasurement:
                     print(point.x, point.y, point.z, file=save)
-        ego2_lidar.listen(ego2_lidar_callback)
         sensors_list.append(ego2_lidar)
+        # lidar 1&2: listen
+        ego1_lidar.listen(ego1_lidar_callback)
+        ego2_lidar.listen(ego2_lidar_callback)
         
         # debug mode
         if args.mode.find('debug') >= 0:
