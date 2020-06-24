@@ -298,10 +298,13 @@ def main():
             if args.mode == 'common':
                 save = open('ego1_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
                 LidarMeasurement.save_to_disk('ego1_lidar_measurement_%d.ply' %LidarMeasurement.frame)
-                print(LidarMeasurement.frame, LidarMeasurement.timestamp,
-                LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
-                LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
-                LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
+            else:
+                save = None
+            print(LidarMeasurement.frame, LidarMeasurement.timestamp,
+            LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
+            LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
+            LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
+            if args.mode == 'common':
                 for point in LidarMeasurement:
                     print(point.x, point.y, point.z, file=save)
         sensors_list.append(ego1_lidar)
@@ -311,10 +314,13 @@ def main():
             if args.mode == 'common':
                 save = open('ego2_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
                 LidarMeasurement.save_to_disk('ego2_lidar_measurement_%d.ply' %LidarMeasurement.frame)
-                print(LidarMeasurement.frame, LidarMeasurement.timestamp,
-                LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
-                LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
-                LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
+            else:
+                save = None
+            print(LidarMeasurement.frame, LidarMeasurement.timestamp,
+            LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
+            LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
+            LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
+            if args.mode == 'common':
                 for point in LidarMeasurement:
                     print(point.x, point.y, point.z, file=save)
         sensors_list.append(ego2_lidar)
