@@ -200,9 +200,9 @@ def main():
         ego_center = []
         for v in ego:
             ego_bbox.append(v.bounding_box)
-            ego_length.append(v.bounding_box.extent.x + v.bounding_box.location.x)
-            ego_width.append(v.bounding_box.extent.y + v.bounding_box.location.y)
-            ego_height.append(v.bounding_box.extent.z + v.bounding_box.location.z)
+            ego_length.append(v.bounding_box.extent.x * 2)
+            ego_width.append(v.bounding_box.extent.y * 2)
+            ego_height.append(v.bounding_box.extent.z * 2)
             ego_center.append(v.bounding_box.location)
         
         # find gnss blueprint
@@ -219,15 +219,15 @@ def main():
         imu_bp.set_attribute("sensor_tick",str(0.1))
         # find lidar blueprint
         lidar_bp = world.get_blueprint_library().find('sensor.lidar.ray_cast')
-        lidar_bp.set_attribute('channels',str(256))
-        lidar_bp.set_attribute('points_per_second',str(180000))
+        lidar_bp.set_attribute('channels',str(64))
+        lidar_bp.set_attribute('points_per_second',str(90000))
         lidar_bp.set_attribute('rotation_frequency',str(10))
         lidar_bp.set_attribute('sensor_tick', str(0.1))
-        lidar_bp.set_attribute('upper_fov', str(60))
-        lidar_bp.set_attribute('lower_fov', str(-30))
-        lidar_bp.set_attribute('range',str(50))
-        ego1_lidar_location = carla.Location(0,0,tan(pi/6)*ego_length[0]/2 + ego_height[0] - ego_center[0].z + 0.1)
-        ego2_lidar_location = carla.Location(0,0,tan(pi/6)*ego_length[1]/2 + ego_height[1] - ego_center[1].z + 0.1)
+        lidar_bp.set_attribute('upper_fov', str(24))
+        lidar_bp.set_attribute('lower_fov', str(-24))
+        lidar_bp.set_attribute('range',str(60))
+        ego1_lidar_location = carla.Location(0,0, tan(pi/6)*ego_length[0]/2 + ego_height[0] - ego_center[0].z)
+        ego2_lidar_location = carla.Location(0,0, tan(pi/6)*ego_length[1]/2 + ego_height[1] - ego_center[1].z)
         lidar_rotation = carla.Rotation(90,0,0)
         ego1_lidar_transform = carla.Transform(ego1_lidar_location,lidar_rotation)
         ego2_lidar_transform = carla.Transform(ego2_lidar_location,lidar_rotation)
