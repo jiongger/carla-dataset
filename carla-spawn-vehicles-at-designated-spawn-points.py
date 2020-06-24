@@ -102,10 +102,13 @@ def main():
         if args.sync:
             settings = world.get_settings()
             traffic_manager.set_synchronous_mode(True)
-            synchronous_master = True
-            settings.synchronous_mode = True
-            settings.fixed_delta_seconds = 0.05
-            world.apply_settings(settings)
+            if not settings.synchronous_mode:
+                synchronous_master = True
+                settings.synchronous_mode = True
+                settings.fixed_delta_seconds = 0.05
+                world.apply_settings(settings)
+            else:
+                synchronous_master = False
 
         blueprints = world.get_blueprint_library().filter(args.filterv)
 
@@ -207,19 +210,19 @@ def main():
         gnss_location = carla.Location(0,0,0)
         gnss_rotation = carla.Rotation(0,0,0)
         gnss_transform = carla.Transform(gnss_location,gnss_rotation)
-        gnss_bp.set_attribute("sensor_tick",str(1.0))
+        gnss_bp.set_attribute("sensor_tick",str(0.1))
         # find imu blueprint
         imu_bp = world.get_blueprint_library().find('sensor.other.imu')
         imu_location = carla.Location(0,0,0)
         imu_rotation = carla.Rotation(0,0,0)
         imu_transform = carla.Transform(imu_location,imu_rotation)
-        imu_bp.set_attribute("sensor_tick",str(1.0))
+        imu_bp.set_attribute("sensor_tick",str(0.1))
         # find lidar blueprint
         lidar_bp = world.get_blueprint_library().find('sensor.lidar.ray_cast')
         lidar_bp.set_attribute('channels',str(256))
         lidar_bp.set_attribute('points_per_second',str(180000))
         lidar_bp.set_attribute('rotation_frequency',str(10))
-        lidar_bp.set_attribute('sensor_tick', str(1))
+        lidar_bp.set_attribute('sensor_tick', str(0.1))
         lidar_bp.set_attribute('upper_fov', str(60))
         lidar_bp.set_attribute('lower_fov', str(-30))
         lidar_bp.set_attribute('range',str(50))
