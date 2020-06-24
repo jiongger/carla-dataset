@@ -99,13 +99,12 @@ def main():
         if args.hybrid:
             traffic_manager.set_hybrid_physics_mode(True)
 
-        if args.sync:
-            settings = world.get_settings()
-            traffic_manager.set_synchronous_mode(True)
-            synchronous_master = True
-            settings.synchronous_mode = True
-            settings.fixed_delta_seconds = 0.05
-            world.apply_settings(settings)
+        settings = world.get_settings()
+        traffic_manager.set_synchronous_mode(True)
+        synchronous_master = True
+        settings.synchronous_mode = True
+        settings.fixed_delta_seconds = 0.05
+        world.apply_settings(settings)
 
         blueprints = world.get_blueprint_library().filter(args.filterv)
 
@@ -253,6 +252,9 @@ def main():
             gnss.transform.rotation.roll, gnss.transform.rotation.pitch, gnss.transform.rotation.yaw,
             gnss.latitude, gnss.longitude, gnss.altitude, file=ego2_gnss_log)
         sensors_list.append(ego2_gnss)
+        # gnss 1&2: listen
+        ego1_gnss.listen(lambda gnss: ego1_gnss_callback(gnss))
+        ego2_gnss.listen(lambda gnss: ego2_gnss_callback(gnss))
 
         # set imu @ ego1
         ego1_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego[0], attachment_type=carla.AttachmentType.Rigid)
@@ -282,6 +284,9 @@ def main():
             imu.gyroscope.x, imu.gyroscope.y, imu.gyroscope.z, 
             imu.compass, file=ego2_imu_log)
         sensors_list.append(ego2_imu)
+        # imu 1&2: listen
+        ego1_imu.listen(lambda imu: ego1_imu_callback(imu))
+        ego2_imu.listen(lambda imu: ego2_imu_callback(imu))
 
         # set lidar @ ego1
         ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego[0],attachment_type=carla.AttachmentType.SpringArm)
@@ -309,13 +314,6 @@ def main():
                 for point in LidarMeasurement:
                     print(point.x, point.y, point.z, file=save)
         sensors_list.append(ego2_lidar)
-
-        # gnss 1&2: listen
-        ego1_gnss.listen(lambda gnss: ego1_gnss_callback(gnss))
-        ego2_gnss.listen(lambda gnss: ego2_gnss_callback(gnss))
-        # imu 1&2: listen
-        ego1_imu.listen(lambda imu: ego1_imu_callback(imu))
-        ego2_imu.listen(lambda imu: ego2_imu_callback(imu))
         # lidar 1&2: listen
         ego1_lidar.listen(ego1_lidar_callback)
         ego2_lidar.listen(ego2_lidar_callback)
