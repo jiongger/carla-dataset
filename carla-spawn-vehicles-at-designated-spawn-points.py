@@ -99,12 +99,13 @@ def main():
         if args.hybrid:
             traffic_manager.set_hybrid_physics_mode(True)
 
-        settings = world.get_settings()
-        traffic_manager.set_synchronous_mode(True)
-        synchronous_master = True
-        settings.synchronous_mode = True
-        settings.fixed_delta_seconds = 0.05
-        world.apply_settings(settings)
+        if args.sync:
+            settings = world.get_settings()
+            traffic_manager.set_synchronous_mode(True)
+            synchronous_master = True
+            settings.synchronous_mode = True
+            settings.fixed_delta_seconds = 0.05
+            world.apply_settings(settings)
 
         blueprints = world.get_blueprint_library().filter(args.filterv)
 
