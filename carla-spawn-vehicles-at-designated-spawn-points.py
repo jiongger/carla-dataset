@@ -293,7 +293,7 @@ def main():
         ego2_imu.listen(lambda imu: ego2_imu_callback(imu))
 
         # set lidar @ ego1
-        ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego[0],attachment_type=carla.AttachmentType.SpringArm)
+        ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego[0],attachment_type=carla.AttachmentType.Rigid)
         def ego1_lidar_callback(LidarMeasurement):
             if args.mode == 'common':
                 save = open('ego1_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
@@ -306,7 +306,7 @@ def main():
                     print(point.x, point.y, point.z, file=save)
         sensors_list.append(ego1_lidar)
         # set lidar @ ego2
-        ego2_lidar = world.spawn_actor(lidar_bp,ego2_lidar_transform,attach_to=ego[1],attachment_type=carla.AttachmentType.SpringArm)
+        ego2_lidar = world.spawn_actor(lidar_bp,ego2_lidar_transform,attach_to=ego[1],attachment_type=carla.AttachmentType.Rigid)
         def ego2_lidar_callback(LidarMeasurement):
             if args.mode == 'common':
                 save = open('ego2_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
