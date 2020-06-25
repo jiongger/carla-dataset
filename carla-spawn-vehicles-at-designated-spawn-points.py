@@ -68,11 +68,11 @@ def main():
         action='store_true',
         help='Enanble')
     argparser.add_argument(
-        '-d', '--delay',
-        metavar='D',
-        default=2.0,
-        type=float,
-        help='delay in seconds between spawns (default: 2.0)')
+        '--path',
+        metavar='P',
+        default='logs',
+        type=str,
+        help='path/to/save/sensor/data')
     argparser.add_argument(
         '--mode',
         metavar='M',
@@ -118,6 +118,10 @@ def main():
             blueprints = [x for x in blueprints if not x.id.endswith('carlacola')]
             blueprints = [x for x in blueprints if not x.id.endswith('cybertruck')]
             blueprints = [x for x in blueprints if not x.id.endswith('t2')]
+        
+        if args.mode == 'common':
+            if os.path.exists(args.path) == False:
+                os.makedirs(args.path)
 
         spawn_points = world.get_map().get_spawn_points()
         selected_spawn_points = [8,9,10,11,12,13,14,15,30,31,58,59,60,61,85,90,91,98,109,110,136,228,229,232,254,255,256,257,258,259,260,261]
@@ -228,14 +232,14 @@ def main():
         lidar_bp.set_attribute('range',str(60))
         ego1_lidar_location = carla.Location(0,0, tan(pi/6)*ego_length[0]/2 + ego_height[0] - ego_center[0].z)
         ego2_lidar_location = carla.Location(0,0, tan(pi/6)*ego_length[1]/2 + ego_height[1] - ego_center[1].z)
-        lidar_rotation = carla.Rotation(90,0,0)
+        lidar_rotation = carla.Rotation(0,0,0)
         ego1_lidar_transform = carla.Transform(ego1_lidar_location,lidar_rotation)
         ego2_lidar_transform = carla.Transform(ego2_lidar_location,lidar_rotation)
 
         # set gnss @ ego1
         ego1_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego[0], attachment_type=carla.AttachmentType.Rigid)
         if args.mode == 'common':
-            ego1_gnss_log = open('ego1_gnss.log', 'w')
+            ego1_gnss_log = open(os.path.join(args.path, 'ego1_gnss.log'), 'w')
         else:
             ego1_gnss_log = None
         def ego1_gnss_callback(gnss):
@@ -247,7 +251,7 @@ def main():
         # set gnss @ ego2
         ego2_gnss = world.spawn_actor(gnss_bp,gnss_transform,attach_to=ego[1], attachment_type=carla.AttachmentType.Rigid)
         if args.mode == 'common':
-            ego2_gnss_log = open('ego2_gnss.log', 'w')
+            ego2_gnss_log = open(os.path.join(args.path, 'ego2_gnss.log'), 'w')
         else:
             ego2_gnss_log = None
         def ego2_gnss_callback(gnss):
@@ -263,7 +267,7 @@ def main():
         # set imu @ ego1
         ego1_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego[0], attachment_type=carla.AttachmentType.Rigid)
         if args.mode == 'common':
-            ego1_imu_log = open('ego1_imu.log', 'w')
+            ego1_imu_log = open(os.path.join(args.path, 'ego1_imu.log'), 'w')
         else:
             ego1_imu_log = None
         def ego1_imu_callback(imu):
@@ -277,7 +281,7 @@ def main():
         # set imu @ ego2
         ego2_imu = world.spawn_actor(imu_bp,imu_transform,attach_to=ego[1], attachment_type=carla.AttachmentType.Rigid)
         if args.mode == 'common':
-            ego2_imu_log = open('ego2_imu.log', 'w')
+            ego2_imu_log = open(os.path.join(args.path, 'ego2_imu.log'), 'w')
         else:
             ego2_imu_log = None
         def ego2_imu_callback(imu):
@@ -296,8 +300,8 @@ def main():
         ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego[0],attachment_type=carla.AttachmentType.Rigid)
         def ego1_lidar_callback(LidarMeasurement):
             if args.mode == 'common':
-                save = open('ego1_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
-                LidarMeasurement.save_to_disk('ego1_lidar_measurement_%d.ply' %LidarMeasurement.frame)
+                save = open(os.path.join(args.path, 'ego1_lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
+                LidarMeasurement.save_to_disk(os.path.join(args.path, 'ego1_lidar_measurement_%d.ply' %LidarMeasurement.frame))
             else:
                 save = None
             print(LidarMeasurement.frame, LidarMeasurement.timestamp,
@@ -312,8 +316,8 @@ def main():
         ego2_lidar = world.spawn_actor(lidar_bp,ego2_lidar_transform,attach_to=ego[1],attachment_type=carla.AttachmentType.Rigid)
         def ego2_lidar_callback(LidarMeasurement):
             if args.mode == 'common':
-                save = open('ego2_lidar_measurement_%d.txt' %LidarMeasurement.frame, 'w')
-                LidarMeasurement.save_to_disk('ego2_lidar_measurement_%d.ply' %LidarMeasurement.frame)
+                save = open(os.path.join(args.path, 'ego2_lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
+                LidarMeasurement.save_to_disk(os.path.join(args.path, 'ego2_lidar_measurement_%d.ply' %LidarMeasurement.frame))
             else:
                 save = None
             print(LidarMeasurement.frame, LidarMeasurement.timestamp,
