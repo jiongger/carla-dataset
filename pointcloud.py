@@ -5,8 +5,6 @@ from math import sin, cos, tan, pi
 
 class pointcloud:
 
-    attach_rotation = np.array((0, 90, 0)) # rotation:= roll, picth, yaw
-
     def __init__(self, infile=None, color=None):        
         if infile is not None:
             self.load(infile, color)        
@@ -33,7 +31,7 @@ class pointcloud:
             self.frame = infos[0]
             self.timestamp = infos[1]
             self.location = np.asarray((infos[2], infos[3], infos[4]))
-            self.orientation = np.asarray((infos[5], infos[6], infos[7])) + self.attach_rotation
+            self.orientation = np.asarray((infos[5], infos[6], infos[7]))
             self.horizontal_angle = infos[8]
             self.channels = infos[9]
             self.has_a_head = True
