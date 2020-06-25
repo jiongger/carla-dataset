@@ -3,4 +3,5 @@
 /carla/
 /.vscode/
 /__pycache__/
-/*.txt
+/**/*.txt
+/**/*.ply
