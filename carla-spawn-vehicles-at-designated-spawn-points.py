@@ -230,8 +230,8 @@ def main():
         lidar_bp.set_attribute('upper_fov', str(24))
         lidar_bp.set_attribute('lower_fov', str(-24))
         lidar_bp.set_attribute('range',str(60))
-        ego1_lidar_location = carla.Location(0,0, tan(pi/6)*ego_length[0]/2 + ego_height[0] - ego_center[0].z)
-        ego2_lidar_location = carla.Location(0,0, tan(pi/6)*ego_length[1]/2 + ego_height[1] - ego_center[1].z)
+        ego1_lidar_location = carla.Location(0,0, tan(pi/6)*ego_length[0]/2 + ego_height[0]/2 + 0.1)
+        ego2_lidar_location = carla.Location(0,0, tan(pi/6)*ego_length[1]/2 + ego_height[1]/2 + 0.1)
         lidar_rotation = carla.Rotation(0,0,0)
         ego1_lidar_transform = carla.Transform(ego1_lidar_location,lidar_rotation)
         ego2_lidar_transform = carla.Transform(ego2_lidar_location,lidar_rotation)
@@ -427,5 +427,5 @@ if __name__ == '__main__':
     except KeyboardInterrupt:
         pass
     finally:
-        print('\ndone.')
+        print('\ndone.\n')
 
