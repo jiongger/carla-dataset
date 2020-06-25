@@ -98,6 +98,7 @@ def main():
         pc_file_list.append(ego_pc_file_list)
         print('retrieved %d shots @ vehicle %d' %(count, index))
     print('retrieved %d shots from %d vehicles in total' %(total_file_count, FLAGS.number_of_coperception_vehicles))
+    assert total_file_count > 0
     
     # TODO: coordinate transfer may create a mirror world 
     # TODO: figure out why?
@@ -114,8 +115,8 @@ def main():
                 assist_pc.translation(assist_pc.location - master_pc.location)
                 master_pc.merge(assist_pc)
             if FLAGS.coordinate == 'G':
-                master_pc.rotation(-master_pc.orientation)
-                master_pc.translation(-master_pc.location)
+                master_pc.rotation(master_pc.orientation)
+                master_pc.translation(master_pc.location)
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)), True)
     
     elif FLAGS.order == 'V':
@@ -129,8 +130,8 @@ def main():
                 assist_pc.translation(assist_pc.location - master_pc.location)
                 master_pc.merge(assist_pc)            
             if FLAGS.coordinate == 'G':
-                master_pc.rotation(-master_pc.orientation)
-                master_pc.translation(-master_pc.location)
+                master_pc.rotation(master_pc.orientation)
+                master_pc.translation(master_pc.location)
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'ego%d.txt' %ego), True)
     
 
