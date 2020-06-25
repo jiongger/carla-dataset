@@ -12,12 +12,10 @@ import plot_core
 FLAGS = argparse.ArgumentParser(
     description=__doc__)
 FLAGS.add_argument(
-    '--mode',
-    metavar='M',
-    default='3d',
-    choices=['2d', '3d'],
-    help='choose to plot a 2d scatter or 3d scatter(default: 3d)'
-)
+    '--plane',
+    metavar='P',
+    action='store_true',
+    help='2d mode execution')
 FLAGS.add_argument(
     'filename_list',
     metavar='F',
@@ -49,9 +47,8 @@ FLAGS.add_argument(
 FLAGS.add_argument(
     '--show_figure',
     metavar='F',
-    type=bool,
-    default=True,
-    help='choose to show figure or not(boolean, default:True)'
+    action='store_true',
+    help='show figure'
 )
 FLAGS.add_argument(
     '--axis',
@@ -113,10 +110,11 @@ def main():
         for pc in pc_list:
             pc.downsampling('fixed-step', FLAGS.upper_limitation_of_number_of_points/number_of_points)
 
-    if FLAGS.mode == '2d':
+    if FLAGS.plane:
         plot_core.plot_2d(pc_list, FLAGS.axis, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi)
     else:
         plot_core.plot_3d(pc_list, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi)
 
 if __name__ == '__main__':
     main()
+    
