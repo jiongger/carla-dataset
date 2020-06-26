@@ -4,6 +4,7 @@ import argparse
 import os
 import sys
 import re
+import matplotlib.pyplot as plt
 
 argparser = argparse.ArgumentParser(
     description=__doc__
@@ -82,6 +83,7 @@ assert (FLAGS.order == 'T' and FLAGS.number_of_coperception_vehicles >=2) or (FL
 def main():
     pc_file_list = []
     total_file_count = 0
+    shortest_file_sequence = -1
     for index in FLAGS.coperception_vehicles_list:
         ego_pc_file_list = []
         count = 0
@@ -96,6 +98,8 @@ def main():
                 int(re.findall(r'\d+', os.path.basename(name).replace('%s%d_%s' %(FLAGS.prefix,index,FLAGS.suffix), ''))[0]) # extract timestamp in filename
         ) # execute sort to keep timestamp consistency
         pc_file_list.append(ego_pc_file_list)
+        if shortest_file_sequence < 0 or shortest_file_sequence > count:
+            shortest_file_sequence = count
         print('retrieved %d shots @ vehicle %d' %(count, index))
     print('retrieved %d shots from %d vehicles in total' %(total_file_count, FLAGS.number_of_coperception_vehicles))
     assert total_file_count > 0
@@ -103,13 +107,15 @@ def main():
     # TODO: coordinate transfer may create a mirror world 
     # TODO: figure out why?
     if FLAGS.order == 'T':
-        for i in range(len(pc_file_list[MASTER_INDEX])):
-            print('fusing @ timestamp %d, retrieving from %d vehicles...' %(i+1,len(pc_file_list)))
+        for i in range(shortest_file_sequence):
+            if shortest_file_sequence < len(pc_file_list[MASTER_INDEX]):
+                print('skipped %d unaligned file(s)' %(len(pc_file_list[MASTER_INDEX]) - shortest_file_sequence))
+            print('fusing @ timestamp %d, retrieving from %d vehicles...' %(i+1,shortest_file_sequence))
             master_pc = pointcloud(pc_file_list[MASTER_INDEX][i])
             for index, assist_pc_file in enumerate(pc_file_list):
                 if index == MASTER_INDEX:
                     continue
-                print('\tretrieving from %d/%d vehicle' %(index+2 if index<MASTER_INDEX else index+1, len(pc_file_list)))
+                print('\tretrieving from %d/%d vehicle' %(index+2 if index<MASTER_INDEX else index+1, shortest_file_sequence))
                 assist_pc = pointcloud(assist_pc_file[i])
                 assist_pc.rotation(assist_pc.orientation - master_pc.orientation)
                 assist_pc.translation(assist_pc.location - master_pc.location)
@@ -120,12 +126,20 @@ def main():
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)), True)
     
     elif FLAGS.order == 'V':
+        fig, ax = plt.subplots()
         for i,ego in enumerate(FLAGS.coperception_vehicles_list):
+            trail_x = []
+            trail_y = []
             print('fusing @ vehicle %d, retrieving from %d shots...' %(ego, len(pc_file_list[i])))
             master_pc = pointcloud(pc_file_list[i][0])
+            print(master_pc.location, master_pc.orientation)
+            trail_x.append(master_pc.location[0])
+            trail_y.append(master_pc.location[1])
             for index, assist_pc_file in enumerate(pc_file_list[i][1:]):
                 print('\tretrieving from %d/%d shot' %(index+2, len(pc_file_list[i])))
                 assist_pc = pointcloud(assist_pc_file)
+                trail_x.append(assist_pc.location[0])
+                trail_y.append(assist_pc.location[1])
                 assist_pc.rotation(assist_pc.orientation - master_pc.orientation)
                 assist_pc.translation(assist_pc.location - master_pc.location)
                 master_pc.merge(assist_pc)            
@@ -133,7 +147,12 @@ def main():
                 master_pc.rotation(master_pc.orientation)
                 master_pc.translation(master_pc.location)
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'ego%d.txt' %ego), True)
-    
+            ax.plot(trail_x, trail_y, label='ego%d' %ego)
+        ax.set_title('trails')
+        ax.set_aspect('equal')
+        plt.legend()
+        plt.show()
+
 
 
 if __name__ == '__main__':
