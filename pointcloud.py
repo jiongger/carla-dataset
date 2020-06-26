@@ -27,10 +27,11 @@ class pointcloud:
         if color is None:
             color = [randint(0,7)*32, randint(0,7)*32, randint(0,7)*32]
         assert len(color) == 3
-        if len(infos) == 10: # parse the head 
+        if len(infos) == 10: # parse the header
             self.frame = infos[0]
             self.timestamp = infos[1]
             self.location = np.asarray((infos[2], infos[3], infos[4]))
+            self.location[0] = -self.location[0] # transform left-handed system to right-handed system
             self.orientation = np.asarray((infos[5], infos[6], infos[7]))
             self.horizontal_angle = infos[8]
             self.channels = infos[9]
@@ -52,8 +53,10 @@ class pointcloud:
         points = []
         for line in raw_cloud:
             point = [float(x) for x in line.rstrip('\n').split(' ')]
+            point[0] = -point[0] # transform left-handed system to right-handed system
             if len(point) == 3:
                 point.extend(color)
+            assert len(point) == 6
             points.append(point)
         self.cloud = np.asarray(points)
         self.number_of_points = len(points)
@@ -93,10 +96,10 @@ class pointcloud:
         # set rotation matrix for rotations around z-axis
         #### --- the yaw in carla.rotation is represented clock-wise -- ####
         #### --- while the yaw in this formula is anti-clock-wise ----- ####
-        rotz[0,0] = cos(-diff[2]/180*pi)
-        rotz[0,1] = sin(-diff[2]/180*pi)
-        rotz[1,0] = -sin(-diff[2]/180*pi)
-        rotz[1,1] = cos(-diff[2]/180*pi)
+        rotz[0,0] = cos(diff[2]/180*pi)
+        rotz[0,1] = sin(diff[2]/180*pi)
+        rotz[1,0] = -sin(diff[2]/180*pi)
+        rotz[1,1] = cos(diff[2]/180*pi)
         rotz[2,2] = 1
         # set rotation matrix for rotations @ (roll, pitch, yaw)
         rota = rota.dot(rotz)
@@ -147,14 +150,14 @@ class pointcloud:
             if self.merged_flag == True:
                 print("\nWARNING: The header of this point cloud may inconsistent according to its merged_flag.\n")
             print(self.frame, self.timestamp, 
-            self.location[0], self.location[1], self.location[2], # location:= x,y,z
+            -self.location[0], self.location[1], self.location[2], # location:= x,y,z
             self.orientation[0], self.orientation[1], self.orientation[2], # orientation:= roll,pitch,yaw
             self.horizontal_angle, self.channels, file=save_file)
         for point in self.cloud:
             if with_color_flag == False:
-                print(point[0], point[1], point[2], file=save_file) # location:= x,y,z
+                print(-point[0], point[1], point[2], file=save_file) # location:= x,y,z
             else:
-                print(point[0], point[1], point[2], point[3], point[4], point[5], file=save_file) # locatio:= x,y,z color:=R,G,B
+                print(-point[0], point[1], point[2], point[3], point[4], point[5], file=save_file) # locatio:= x,y,z color:=R,G,B
 
 
     def downsampling(self, mode, ratio):
