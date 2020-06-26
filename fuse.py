@@ -24,6 +24,8 @@ argparser.add_argument(
 argparser.add_argument(
     '-i', '--coperception_vehicles_list',
     metavar='I',
+    type=int,
+    nargs='+',
     default=None,
     help='[optional] index of co-perception vehicles (array-like, default=[1,2,..,N])'
 )
@@ -72,10 +74,13 @@ argparser.add_argument(
 FLAGS = argparser.parse_args()
 if FLAGS.coperception_vehicles_list is None:
     FLAGS.coperception_vehicles_list = range(1,FLAGS.number_of_coperception_vehicles+1)
+else:
+    FLAGS.number_of_coperception_vehicles = len(FLAGS.coperception_vehicles_list)
 if FLAGS.save_results_to is None:
     FLAGS.save_results_to = FLAGS.path
-assert FLAGS.master in FLAGS.coperception_vehicles_list
-MASTER_INDEX = FLAGS.coperception_vehicles_list.index(FLAGS.master)
+assert FLAGS.master in FLAGS.coperception_vehicles_list or FLAGS.order == 'V'
+if FLAGS.order == 'T':
+    MASTER_INDEX = FLAGS.coperception_vehicles_list.index(FLAGS.master)
 assert FLAGS.number_of_coperception_vehicles == len(FLAGS.coperception_vehicles_list)
 assert (FLAGS.order == 'T' and FLAGS.number_of_coperception_vehicles >=2) or (FLAGS.order == 'V')
 
@@ -104,8 +109,6 @@ def main():
     print('retrieved %d shots from %d vehicles in total' %(total_file_count, FLAGS.number_of_coperception_vehicles))
     assert total_file_count > 0
     
-    # TODO: coordinate transfer may create a mirror world 
-    # TODO: figure out why?
     if FLAGS.order == 'T':
         if shortest_file_sequence < len(pc_file_list[MASTER_INDEX]):
             print('skipped %d unaligned file(s)' %(len(pc_file_list[MASTER_INDEX]) - shortest_file_sequence))
@@ -138,6 +141,7 @@ def main():
             for index, assist_pc_file in enumerate(pc_file_list[i][1:]):
                 print('\tretrieving from %d/%d shot' %(index+2, len(pc_file_list[i])))
                 assist_pc = pointcloud(assist_pc_file)
+                print(assist_pc.location, assist_pc.orientation)
                 trail_x.append(assist_pc.location[0])
                 trail_y.append(assist_pc.location[1])
                 assist_pc.rotation(assist_pc.orientation - master_pc.orientation)
