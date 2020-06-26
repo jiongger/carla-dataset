@@ -107,9 +107,9 @@ def main():
     # TODO: coordinate transfer may create a mirror world 
     # TODO: figure out why?
     if FLAGS.order == 'T':
+        if shortest_file_sequence < len(pc_file_list[MASTER_INDEX]):
+            print('skipped %d unaligned file(s)' %(len(pc_file_list[MASTER_INDEX]) - shortest_file_sequence))
         for i in range(shortest_file_sequence):
-            if shortest_file_sequence < len(pc_file_list[MASTER_INDEX]):
-                print('skipped %d unaligned file(s)' %(len(pc_file_list[MASTER_INDEX]) - shortest_file_sequence))
             print('fusing @ timestamp %d, retrieving from %d vehicles...' %(i+1,shortest_file_sequence))
             master_pc = pointcloud(pc_file_list[MASTER_INDEX][i])
             for index, assist_pc_file in enumerate(pc_file_list):
