@@ -110,12 +110,12 @@ def main():
         if shortest_file_sequence < len(pc_file_list[MASTER_INDEX]):
             print('skipped %d unaligned file(s)' %(len(pc_file_list[MASTER_INDEX]) - shortest_file_sequence))
         for i in range(shortest_file_sequence):
-            print('fusing @ timestamp %d, retrieving from %d vehicles...' %(i+1,shortest_file_sequence))
+            print('fusing @ timestamp %d, retrieving from %d vehicles...' %(i+1,len(pc_file_list)))
             master_pc = pointcloud(pc_file_list[MASTER_INDEX][i])
             for index, assist_pc_file in enumerate(pc_file_list):
                 if index == MASTER_INDEX:
                     continue
-                print('\tretrieving from %d/%d vehicle' %(index+2 if index<MASTER_INDEX else index+1, shortest_file_sequence))
+                print('\tretrieving from %d/%d vehicle' %(index+2 if index<MASTER_INDEX else index+1, len(pc_file_list)))
                 assist_pc = pointcloud(assist_pc_file[i])
                 assist_pc.rotation(assist_pc.orientation - master_pc.orientation)
                 assist_pc.translation(assist_pc.location - master_pc.location)
