@@ -26,7 +26,11 @@ class pointcloud:
         infos = [float(x) for x in raw_header.rstrip('\n').split(' ')]
         if color is None:
             color = [randint(0,7)*32, randint(0,7)*32, randint(0,7)*32]
+        elif isinstance(color, int):
+            color = [color, color, color]
         assert len(color) == 3
+        color = np.asarray(color)
+
         if len(infos) == 10: # parse the header
             self.frame = infos[0]
             self.timestamp = infos[1]
@@ -49,6 +53,7 @@ class pointcloud:
             self.channels = -1
             self.has_a_head = False
             raw_cloud = raw_data
+
         points = []
         for line in raw_cloud:
             point = [float(x) for x in line.rstrip('\n').split(' ')]
@@ -59,6 +64,7 @@ class pointcloud:
             assert len(point) == 6
             points.append(point)
         self.cloud = np.asarray(points)
+    
         self.number_of_points = len(points)
         self.merged_flag = False
         self.left_handed_flag = left_handed_flag
@@ -131,7 +137,8 @@ class pointcloud:
             pse_point = np.dot(rota, point[0:3].transpose()) # throw RGB
             pse_point = np.hstack((pse_point.transpose(), point[3:6])) # retrieve RGB dimension
             rot_cloud.append(pse_point)
-        self.cloud = rot_cloud
+        rot_cloud = np.asarray(rot_cloud)
+        self.cloud = rot_cloud.copy()
 
 
     def merge(self, pc): # merge another point cloud into current point cloud
@@ -144,7 +151,23 @@ class pointcloud:
         self.cloud = np.concatenate([self.cloud, pc.cloud])
         self.merged_flag = True
         self.number_of_points = len(self.cloud)
+    
+    def reshade(self, color=None):
+        assert self.number_of_points >= 0
+        if color is None:
+            color = [randint(0,7)*32, randint(0,7)*32, randint(0,7)*32]
+        elif isinstance(color, int):
+            color = [color, color, color]
+        assert len(color) == 3
+        color = np.asarray(color)
 
+        reshade_cloud = []
+        for point in self.cloud:
+            pse_point = np.hstack((point[0:3], color))
+            reshade_cloud.append(pse_point)
+        reshade_cloud = np.asarray(reshade_cloud)
+        self.cloud = reshade_cloud.copy()
+        
 
     def copy(self): # get a copy of current point cloud
         pc = pointcloud()
@@ -157,6 +180,8 @@ class pointcloud:
         pc.cloud = self.cloud.copy()
         pc.number_of_points = self.number_of_points
         pc.merged_flag = self.merged_flag
+        pc.has_a_head = self.has_a_head
+        pc.left_handed_flag = self.left_handed_flag
         return pc
 
 

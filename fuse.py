@@ -157,7 +157,8 @@ def main():
                 master_pc.translation(master_pc.location)
             else:
                 master_pc.rotation(-master_pc.orientation)
-            master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'ego%d.txt' %ego), True, False)
+            master_pc.reshade()
+            master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'ego%d.txt' %ego), True)
             ax.plot(trail_x, trail_y, label='ego%d' %ego)
         ax.set_title('trails')
         ax.set_aspect('equal')
