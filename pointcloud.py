@@ -5,9 +5,9 @@ from math import sin, cos, tan, pi
 
 class pointcloud:
 
-    def __init__(self, infile=None, color=None):        
+    def __init__(self, infile=None, color=None, left_handed_flag=True):        
         if infile is not None:
-            self.load(infile, color)        
+            self.load(infile, color, left_handed_flag)
         else:
             self.frame=-1
             self.timestamp=-1.0
@@ -16,7 +16,7 @@ class pointcloud:
             self.has_a_head=False
     
 
-    def load(self, infile, color):
+    def load(self, infile, color, left_handed_flag):
         if isinstance(infile, str): # in case you give a file name instead of a file object
             infile = open(infile, 'r')
             
@@ -30,9 +30,8 @@ class pointcloud:
         if len(infos) == 10: # parse the header
             self.frame = infos[0]
             self.timestamp = infos[1]
-            self.location = np.asarray((infos[2], infos[3], infos[4]))
-            self.location[0] = -self.location[0] # transform left-handed system to right-handed system
-            self.orientation = np.asarray((infos[5], infos[6], infos[7]))
+            self.location = np.asarray((infos[2], infos[3], -infos[4] if left_handed_flag else infos[4]))
+            self.orientation = np.asarray((infos[5], infos[6], infos[7]+90 if left_handed_flag else infos[7]))
             self.horizontal_angle = infos[8]
             self.channels = infos[9]
             self.has_a_head = True
@@ -53,7 +52,8 @@ class pointcloud:
         points = []
         for line in raw_cloud:
             point = [float(x) for x in line.rstrip('\n').split(' ')]
-            point[0] = -point[0] # transform left-handed system to right-handed system
+            if left_handed_flag:
+                point[2] = -point[2]
             if len(point) == 3:
                 point.extend(color)
             assert len(point) == 6
@@ -61,6 +61,7 @@ class pointcloud:
         self.cloud = np.asarray(points)
         self.number_of_points = len(points)
         self.merged_flag = False
+        self.left_handed_flag = left_handed_flag
     
 
     def translation(self, diff): # diff:=(diff_x, diff_y, diff_z) @ any array-like objects
@@ -68,7 +69,7 @@ class pointcloud:
         assert len(diff) == 3
         diff = np.asarray(diff)
         diff = np.hstack((diff, np.zeros(3))) # extend diff to RGB dimensions
-        self.cloud = self.cloud - diff
+        self.cloud = self.cloud + diff
     
 
     def rotation(self, diff): # diff:=(roll, pitch, yaw) @ any array-like objects
@@ -81,26 +82,45 @@ class pointcloud:
         roty = np.zeros((3,3))
         rotz = np.zeros((3,3))
         rota = np.eye(3)
+
+        if self.left_handed_flag:
         # set rotation matrix for rotations around x-axis
-        rotx[0,0] = 1
-        rotx[1,1] = cos(diff[0]/180*pi)
-        rotx[1,2] = sin(diff[0]/180*pi)
-        rotx[2,1] = -sin(diff[0]/180*pi)
-        rotx[2,2] = cos(diff[0]/180*pi)
+            rotx[0,0] = 1
+            rotx[1,1] = cos(diff[0]/180*pi)
+            rotx[1,2] = -sin(diff[0]/180*pi)
+            rotx[2,1] = sin(diff[0]/180*pi)
+            rotx[2,2] = cos(diff[0]/180*pi)
         # set rotation matrix for rotations around y-axis
-        roty[0,0] = cos(diff[1]/180*pi)
-        roty[0,2] = -sin(diff[1]/180*pi)
-        roty[1,1] = 1
-        roty[2,0] = sin(diff[1]/180*pi)
-        roty[2,2] = cos(diff[1]/180*pi)
+            roty[0,0] = cos(diff[1]/180*pi)
+            roty[0,2] = sin(diff[1]/180*pi)
+            roty[1,1] = 1
+            roty[2,0] = -sin(diff[1]/180*pi)
+            roty[2,2] = cos(diff[1]/180*pi)
         # set rotation matrix for rotations around z-axis
-        #### --- the yaw in carla.rotation is represented clock-wise -- ####
-        #### --- while the yaw in this formula is anti-clock-wise ----- ####
-        rotz[0,0] = cos(diff[2]/180*pi)
-        rotz[0,1] = sin(diff[2]/180*pi)
-        rotz[1,0] = -sin(diff[2]/180*pi)
-        rotz[1,1] = cos(diff[2]/180*pi)
-        rotz[2,2] = 1
+            rotz[0,0] = cos(diff[2]/180*pi)
+            rotz[0,1] = -sin(diff[2]/180*pi)
+            rotz[1,0] = sin(diff[2]/180*pi)
+            rotz[1,1] = cos(diff[2]/180*pi)
+            rotz[2,2] = 1
+        else:
+        # set rotation matrix for rotations around x-axis
+            rotx[0,0] = 1
+            rotx[1,1] = cos(diff[0]/180*pi)
+            rotx[1,2] = sin(diff[0]/180*pi)
+            rotx[2,1] = -sin(diff[0]/180*pi)
+            rotx[2,2] = cos(diff[0]/180*pi)
+        # set rotation matrix for rotations around y-axis
+            roty[0,0] = cos(diff[1]/180*pi)
+            roty[0,2] = -sin(diff[1]/180*pi)
+            roty[1,1] = 1
+            roty[2,0] = sin(diff[1]/180*pi)
+            roty[2,2] = cos(diff[1]/180*pi)
+        # set rotation matrix for rotations around z-axis
+            rotz[0,0] = cos(-diff[2]/180*pi)
+            rotz[0,1] = sin(-diff[2]/180*pi)
+            rotz[1,0] = -sin(-diff[2]/180*pi)
+            rotz[1,1] = cos(-diff[2]/180*pi)
+            rotz[2,2] = 1
         # set rotation matrix for rotations @ (roll, pitch, yaw)
         rota = rota.dot(rotz)
         rota = rota.dot(roty)
@@ -150,14 +170,14 @@ class pointcloud:
             if self.merged_flag == True:
                 print("\nWARNING: The header of this point cloud may inconsistent according to its merged_flag.\n")
             print(self.frame, self.timestamp, 
-            -self.location[0], self.location[1], self.location[2], # location:= x,y,z
-            self.orientation[0], self.orientation[1], self.orientation[2], # orientation:= roll,pitch,yaw
+            self.location[0], self.location[1], -self.location[2] if self.left_handed_flag else self.location[2], # location:= x,y,z
+            self.orientation[0], self.orientation[1], self.orientation[2]-90 if self.left_handed_flag else self.orientation[2], # orientation:= roll,pitch,yaw
             self.horizontal_angle, self.channels, file=save_file)
         for point in self.cloud:
             if with_color_flag == False:
-                print(-point[0], point[1], point[2], file=save_file) # location:= x,y,z
+                print(point[0], point[1], -point[2] if self.left_handed_flag else point[2], file=save_file) # location:= x,y,z
             else:
-                print(-point[0], point[1], point[2], point[3], point[4], point[5], file=save_file) # locatio:= x,y,z color:=R,G,B
+                print(point[0], point[1], -point[2] if self.left_handed_flag else point[2], point[3], point[4], point[5], file=save_file) # locatio:= x,y,z color:=R,G,B
 
 
     def downsampling(self, mode, ratio):

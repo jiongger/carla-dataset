@@ -71,6 +71,11 @@ argparser.add_argument(
     type=str,
     help=''
 )
+argparser.add_argument(
+    '--right_handed',
+    action='store_true',
+    help='enable if its a right handed coordinate system'
+)
 FLAGS = argparser.parse_args()
 if FLAGS.coperception_vehicles_list is None:
     FLAGS.coperception_vehicles_list = range(1,FLAGS.number_of_coperception_vehicles+1)
@@ -114,18 +119,20 @@ def main():
             print('skipped %d unaligned file(s)' %(len(pc_file_list[MASTER_INDEX]) - shortest_file_sequence))
         for i in range(shortest_file_sequence):
             print('fusing @ timestamp %d, retrieving from %d vehicles...' %(i+1,len(pc_file_list)))
-            master_pc = pointcloud(pc_file_list[MASTER_INDEX][i])
+            master_pc = pointcloud(pc_file_list[MASTER_INDEX][i], left_handed_flag= not FLAGS.right_handed)
+            master_pc.rotation(master_pc.orientation)
             for index, assist_pc_file in enumerate(pc_file_list):
                 if index == MASTER_INDEX:
                     continue
                 print('\tretrieving from %d/%d vehicle' %(index+2 if index<MASTER_INDEX else index+1, len(pc_file_list)))
-                assist_pc = pointcloud(assist_pc_file[i])
-                assist_pc.rotation(assist_pc.orientation - master_pc.orientation)
+                assist_pc = pointcloud(assist_pc_file[i], left_handed_flag= not FLAGS.right_handed)
+                assist_pc.rotation(assist_pc.orientation)
                 assist_pc.translation(assist_pc.location - master_pc.location)
                 master_pc.merge(assist_pc)
             if FLAGS.coordinate == 'G':
-                master_pc.rotation(master_pc.orientation)
                 master_pc.translation(master_pc.location)
+            else:
+                master_pc.rotation(-master_pc.orientation)
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)), True)
     
     elif FLAGS.order == 'V':
@@ -134,26 +141,28 @@ def main():
             trail_x = []
             trail_y = []
             print('fusing @ vehicle %d, retrieving from %d shots...' %(ego, len(pc_file_list[i])))
-            master_pc = pointcloud(pc_file_list[i][0])
-            print(master_pc.location, master_pc.orientation)
+            master_pc = pointcloud(pc_file_list[i][0], left_handed_flag= not FLAGS.right_handed)
+            master_pc.rotation(master_pc.orientation)
             trail_x.append(master_pc.location[0])
             trail_y.append(master_pc.location[1])
             for index, assist_pc_file in enumerate(pc_file_list[i][1:]):
                 print('\tretrieving from %d/%d shot' %(index+2, len(pc_file_list[i])))
-                assist_pc = pointcloud(assist_pc_file)
-                print(assist_pc.location, assist_pc.orientation)
+                assist_pc = pointcloud(assist_pc_file, left_handed_flag= not FLAGS.right_handed)
+                assist_pc.rotation(assist_pc.orientation)
                 trail_x.append(assist_pc.location[0])
                 trail_y.append(assist_pc.location[1])
-                assist_pc.rotation(assist_pc.orientation - master_pc.orientation)
                 assist_pc.translation(assist_pc.location - master_pc.location)
                 master_pc.merge(assist_pc)            
             if FLAGS.coordinate == 'G':
-                master_pc.rotation(master_pc.orientation)
                 master_pc.translation(master_pc.location)
+            else:
+                master_pc.rotation(-master_pc.orientation)
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'ego%d.txt' %ego), True)
             ax.plot(trail_x, trail_y, label='ego%d' %ego)
         ax.set_title('trails')
         ax.set_aspect('equal')
+        if not FLAGS.right_handed:
+            ax.invert_xaxis()
         plt.legend()
         plt.show()
 
