@@ -206,6 +206,8 @@ class pointcloud:
 
 
     def downsampling(self, mode, ratio):
+        assert self.number_of_points >= 0
+        assert mode == 'random' or mode == 'fixed-step'
         if mode == 'random':
             self.cloud = sample(self.cloud, int(self.number_of_points*ratio))
         elif mode == 'fixed-step':
