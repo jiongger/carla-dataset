@@ -34,7 +34,7 @@ class pointcloud:
         if len(infos) == 10: # parse the header
             self.frame = infos[0]
             self.timestamp = infos[1]
-            self.location = np.asarray((infos[2], infos[3], -infos[4] if left_handed_flag else infos[4]))
+            self.location = np.asarray((infos[2], infos[3], infos[4]))
             self.orientation = np.asarray((infos[5], infos[6], infos[7]+90 if left_handed_flag else infos[7]))
             self.horizontal_angle = infos[8]
             self.channels = infos[9]
@@ -195,7 +195,7 @@ class pointcloud:
             if self.merged_flag == True:
                 print("\nWARNING: The header of this point cloud may inconsistent according to its merged_flag.\n")
             print(self.frame, self.timestamp, 
-            self.location[0], self.location[1], -self.location[2] if self.left_handed_flag else self.location[2], # location:= x,y,z
+            self.location[0], self.location[1], self.location[2], # location:= x,y,z
             self.orientation[0], self.orientation[1], self.orientation[2]-90 if self.left_handed_flag else self.orientation[2], # orientation:= roll,pitch,yaw
             self.horizontal_angle, self.channels, file=save_file)
         for point in self.cloud:
