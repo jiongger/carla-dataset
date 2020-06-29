@@ -14,6 +14,7 @@ class pointcloud:
             self.merged_flag=False
             self.number_of_points=-1
             self.has_a_head=False
+            self.left_handed_flag=True
     
 
     def load(self, infile, color, left_handed_flag):
@@ -152,6 +153,7 @@ class pointcloud:
         self.merged_flag = True
         self.number_of_points = len(self.cloud)
     
+
     def reshade(self, color=None):
         assert self.number_of_points >= 0
         if color is None:
