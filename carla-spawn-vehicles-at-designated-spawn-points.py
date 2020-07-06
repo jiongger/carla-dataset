@@ -80,6 +80,10 @@ def main():
         type=str,
         choices=['debug-ego', 'debug-all', 'common'],
         help='debug mode disable all file output')
+    argparser.add_argument(
+        '--creat_ground_truth',
+        action='store_true',
+        help='create ground truth database')
     args = argparser.parse_args()
 
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
@@ -224,10 +228,10 @@ def main():
         # find lidar blueprint
         lidar_bp = world.get_blueprint_library().find('sensor.lidar.ray_cast')
         lidar_bp.set_attribute('channels',str(64))
-        lidar_bp.set_attribute('points_per_second',str(90000))
+        lidar_bp.set_attribute('points_per_second',str(960000))
         lidar_bp.set_attribute('rotation_frequency',str(10))
         lidar_bp.set_attribute('sensor_tick', str(0.1))
-        lidar_bp.set_attribute('upper_fov', str(24))
+        lidar_bp.set_attribute('upper_fov', str(0))
         lidar_bp.set_attribute('lower_fov', str(-24))
         lidar_bp.set_attribute('range',str(60))
         ego1_lidar_location = carla.Location(0,0, tan(pi/180*25)*ego_length[0]/2 + ego_height[0])
