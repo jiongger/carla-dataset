@@ -8,6 +8,10 @@ try:
         sys.version_info.major,
         sys.version_info.minor,
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
+    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
+        sys.version_info.major,
+        sys.version_info.minor,
+        'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
 except IndexError:
     pass
 
@@ -70,7 +74,7 @@ def main():
     argparser.add_argument(
         '--path',
         metavar='P',
-        default='logs',
+        default='../logs',
         type=str,
         help='path/to/save/sensor/data')
     argparser.add_argument(
@@ -79,11 +83,11 @@ def main():
         default='common',
         type=str,
         choices=['debug-ego', 'debug-all', 'common'],
-        help='debug mode disable all file output')
+        help='debug mode: disable all file output')
     argparser.add_argument(
-        '--creat_ground_truth',
+        '--save_as_kitti_format',
         action='store_true',
-        help='create ground truth database')
+        help='save data as kitti format')
     args = argparser.parse_args()
 
     logging.basicConfig(format='%(levelname)s: %(message)s', level=logging.INFO)
@@ -304,33 +308,49 @@ def main():
         ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego[0],attachment_type=carla.AttachmentType.Rigid)
         def ego1_lidar_callback(LidarMeasurement):
             if args.mode == 'common':
-                save = open(os.path.join(args.path, 'ego1_lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
-                LidarMeasurement.save_to_disk(os.path.join(args.path, 'ego1_lidar_measurement_%d.ply' %LidarMeasurement.frame))
+                if args.save_as_kitti_format:
+                    import struct
+                    save = open(os.path.join(args.path, '%06d.bin' %(8000+LidarMeasurement.frame)), 'wb')
+                else:
+                    save = open(os.path.join(args.path, 'ego1_lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
+                    LidarMeasurement.save_to_disk(os.path.join(args.path, 'ego1_lidar_measurement_%d.ply' %LidarMeasurement.frame))
             else:
                 save = None
-            print(LidarMeasurement.frame, LidarMeasurement.timestamp,
-            LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
-            LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
-            LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
+            if not args.save_as_kitti_format:
+                print(LidarMeasurement.frame, LidarMeasurement.timestamp,
+                LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
+                LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
+                LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
             if args.mode == 'common':
                 for point in LidarMeasurement:
-                    print(point.x, point.y, point.z, file=save)
+                    if args.save_as_kitti_format:
+                        save.write(struct.pack('ffff', -point.y,point.x,-point.z,0.5))
+                    else:
+                        print(point.x, point.y, point.z, file=save)
         sensors_list.append(ego1_lidar)
         # set lidar @ ego2
         ego2_lidar = world.spawn_actor(lidar_bp,ego2_lidar_transform,attach_to=ego[1],attachment_type=carla.AttachmentType.Rigid)
         def ego2_lidar_callback(LidarMeasurement):
             if args.mode == 'common':
-                save = open(os.path.join(args.path, 'ego2_lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
-                LidarMeasurement.save_to_disk(os.path.join(args.path, 'ego2_lidar_measurement_%d.ply' %LidarMeasurement.frame))
+                if args.save_as_kitti_format:
+                    import struct
+                    save = open(os.path.join(args.path, '%06d.bin' %(9000+LidarMeasurement.frame)), 'wb')
+                else:
+                    save = open(os.path.join(args.path, 'ego2_lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
+                    LidarMeasurement.save_to_disk(os.path.join(args.path, 'ego2_lidar_measurement_%d.ply' %LidarMeasurement.frame))
             else:
                 save = None
-            print(LidarMeasurement.frame, LidarMeasurement.timestamp,
-            LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
-            LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
-            LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
+            if not args.save_as_kitti_format:
+                print(LidarMeasurement.frame, LidarMeasurement.timestamp,
+                LidarMeasurement.transform.location.x, LidarMeasurement.transform.location.y, LidarMeasurement.transform.location.z,
+                LidarMeasurement.transform.rotation.roll, LidarMeasurement.transform.rotation.pitch, LidarMeasurement.transform.rotation.yaw, 
+                LidarMeasurement.horizontal_angle, LidarMeasurement.channels, file=save)
             if args.mode == 'common':
                 for point in LidarMeasurement:
-                    print(point.x, point.y, point.z, file=save)
+                    if args.save_as_kitti_format:
+                        save.write(struct.pack('ffff', -point.y,point.x,-point.z,0.5))
+                    else:
+                        print(point.x, point.y, point.z, file=save)
         sensors_list.append(ego2_lidar)
         # lidar 1&2: listen
         ego1_lidar.listen(ego1_lidar_callback)
