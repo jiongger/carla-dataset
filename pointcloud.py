@@ -221,11 +221,11 @@ class pointcloud:
             import struct
             save_file = open(filename, 'wb')
             for point in self.cloud:
-                save_file.write('fff', point[0:3])
+                save_file.write(struct.pack('fff', point[0], point[1], point[2]))
                 if export_intensity:
-                    save_file.write('f', point[3])
+                    save_file.write(struct.pack('f', point[3]))
                 if export_rgb:
-                    save_file.write('fff', point[-3:])
+                    save_file.write(struct.pack('fff', point[-3], point[-2], point[-1]))
         else:
             print('\ninvaild format\n')
             raise NotImplementedError
