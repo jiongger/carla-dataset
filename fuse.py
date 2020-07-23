@@ -128,6 +128,7 @@ def main():
             infile.close()
             master_pc = pointcloud(pc_file_list[MASTER_INDEX][i], skip=1, use_intensity=False, use_rgb=False)
             master_pc.inverse('z')
+            master_pc.save_to_disk('%s.bin' %(pc_file_list[MASTER_INDEX][i][0:-3]+'_k'))
             master_pc.rotation(master_rot)
             master_pc.rotation(master_orientation)
             master_pc.translation(master_location)
@@ -155,7 +156,7 @@ def main():
                 master_pc.rotation(-master_orientation)
             master_pc.inverse('z')
             master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)))
-            plot_core.plot_2d([master_pc], size=0.1, left_handed=True)
+            #plot_core.plot_2d([master_pc], size=0.1, left_handed=True)
             #master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, '%06d.bin' %(9000+i+1)), True)
     
     elif FLAGS.order == 'V':
