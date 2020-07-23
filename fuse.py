@@ -5,6 +5,7 @@ import os
 import sys
 import re
 import matplotlib.pyplot as plt
+import numpy as np
 
 argparser = argparse.ArgumentParser(
     description=__doc__
@@ -71,11 +72,6 @@ argparser.add_argument(
     type=str,
     help=''
 )
-argparser.add_argument(
-    '--right_handed',
-    action='store_true',
-    help='enable if its a right handed coordinate system'
-)
 FLAGS = argparser.parse_args()
 if FLAGS.coperception_vehicles_list is None:
     FLAGS.coperception_vehicles_list = range(1,FLAGS.number_of_coperception_vehicles+1)
@@ -114,26 +110,53 @@ def main():
     print('retrieved %d shots from %d vehicles in total' %(total_file_count, FLAGS.number_of_coperception_vehicles))
     assert total_file_count > 0
     
+    rot_yaw_90 = np.asarray([[0,1,0],[-1,0,0],[0,0,1]])
+    rot_yaw_anti_90 = -rot_yaw_90
+    import plot_core
+
     if FLAGS.order == 'T':
         if shortest_file_sequence < len(pc_file_list[MASTER_INDEX]):
             print('skipped %d unaligned file(s)' %(len(pc_file_list[MASTER_INDEX]) - shortest_file_sequence))
         for i in range(shortest_file_sequence):
             print('fusing @ timestamp %d, retrieving from %d vehicles...' %(i+1,len(pc_file_list)))
-            master_pc = pointcloud(pc_file_list[MASTER_INDEX][i], left_handed_flag= not FLAGS.right_handed)
-            master_pc.rotation(master_pc.orientation)
+            infile = open(pc_file_list[MASTER_INDEX][i], 'r')
+            infos = [ float(x) for x in infile.readline().rstrip('\n').split(' ') ]
+            master_location = np.asarray(infos[2:5])
+            master_orientation = np.asarray(infos[5:8])
+            master_orientation[2] = -master_orientation[2]
+            master_rot = np.asarray([0,0,-90])
+            infile.close()
+            master_pc = pointcloud(pc_file_list[MASTER_INDEX][i], skip=1, use_intensity=False, use_rgb=False)
+            master_pc.inverse('z')
+            master_pc.rotation(master_rot)
+            master_pc.rotation(master_orientation)
+            master_pc.translation(master_location)
+            master_pc.shade()
             for index, assist_pc_file in enumerate(pc_file_list):
                 if index == MASTER_INDEX:
                     continue
                 print('\tretrieving from %d/%d vehicle' %(index+2 if index<MASTER_INDEX else index+1, len(pc_file_list)))
-                assist_pc = pointcloud(assist_pc_file[i], left_handed_flag= not FLAGS.right_handed)
-                assist_pc.rotation(assist_pc.orientation)
-                assist_pc.translation(assist_pc.location - master_pc.location)
+                infile = open(assist_pc_file[i], 'r')
+                infos = [ float(x) for x in infile.readline().rstrip('\n').split(' ') ]
+                assist_location = np.asarray(infos[2:5])
+                assist_orientation = np.asarray(infos[5:8])
+                assist_orientation[2] = -assist_orientation[2]
+                assist_rot = np.asarray([0,0,-90])
+                infile.close()
+                assist_pc = pointcloud(assist_pc_file[i], skip=1, use_intensity=False, use_rgb=False)
+                assist_pc.inverse('z')
+                assist_pc.rotation(assist_rot)
+                assist_pc.rotation(assist_orientation)
+                assist_pc.translation(assist_location)
+                assist_pc.shade()
                 master_pc.merge(assist_pc)
-            if FLAGS.coordinate == 'G':
-                master_pc.translation(master_pc.location)
-            else:
-                master_pc.rotation(-master_pc.orientation)
-            master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)), True)
+            if FLAGS.coordinate == 'L':
+                master_pc.translation(-master_location)
+                master_pc.rotation(-master_orientation)
+            master_pc.inverse('z')
+            master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)))
+            plot_core.plot_2d([master_pc], size=0.1, left_handed=True)
+            #master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, '%06d.bin' %(9000+i+1)), True)
     
     elif FLAGS.order == 'V':
         fig, ax = plt.subplots()
@@ -141,13 +164,13 @@ def main():
             trail_x = []
             trail_y = []
             print('fusing @ vehicle %d, retrieving from %d shots...' %(ego, len(pc_file_list[i])))
-            master_pc = pointcloud(pc_file_list[i][0], left_handed_flag= not FLAGS.right_handed)
+            master_pc = pointcloud(pc_file_list[i][0], skip=1, use_intensity=False, use_rgb=False)
             master_pc.rotation(master_pc.orientation)
             trail_x.append(master_pc.location[0])
             trail_y.append(master_pc.location[1])
             for index, assist_pc_file in enumerate(pc_file_list[i][1:]):
                 print('\tretrieving from %d/%d shot' %(index+2, len(pc_file_list[i])))
-                assist_pc = pointcloud(assist_pc_file, left_handed_flag= not FLAGS.right_handed)
+                assist_pc = pointcloud(assist_pc_file, skip=1, use_intensity=False, use_rgb=False)
                 assist_pc.rotation(assist_pc.orientation)
                 trail_x.append(assist_pc.location[0])
                 trail_y.append(assist_pc.location[1])
@@ -158,7 +181,8 @@ def main():
             else:
                 master_pc.rotation(-master_pc.orientation)
             master_pc.reshade()
-            master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'ego%d.txt' %ego), True)
+            master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'ego%d.txt' %ego))
+            #master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, '%06d.bin' %(8000+ego)), True)
             ax.plot(trail_x, trail_y, label='ego%d' %ego)
         ax.set_title('trails')
         ax.set_aspect('equal')
