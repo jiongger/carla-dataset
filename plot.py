@@ -85,6 +85,12 @@ FLAGS.add_argument(
     choices=['skip', 'stop'],
     help='specify how to delta with exception(default:skip)'
 )
+FLAGS.add_argument(
+    '--left_handed',
+    metavar='L',
+    action='store_true',
+    help='left handed coordinate system'
+)
 FLAGS = FLAGS.parse_args()
 
 
@@ -111,9 +117,9 @@ def main():
             pc.downsampling('fixed-step', FLAGS.upper_limitation_of_number_of_points/number_of_points)
 
     if FLAGS.plane:
-        plot_core.plot_2d(pc_list, FLAGS.axis, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi)
+        plot_core.plot_2d(pc_list, FLAGS.axis, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi, FLAGS.left_handed)
     else:
-        plot_core.plot_3d(pc_list, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi)
+        plot_core.plot_3d(pc_list, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi, FLAGS.left_handed)
 
 if __name__ == '__main__':
     main()
