@@ -194,19 +194,21 @@ class pointcloud:
         self.cloud = inversed_cloud.copy()
 
 
-    def save_to_disk(self, filename, export_intensity=None, export_rgb=None):
+    def save_to_disk(self, filename, _format=None, export_intensity=None, export_rgb=None):
         assert self.number_of_points >= 0
         assert isinstance(filename, str)
-        if export_intensity == None:
+        if export_intensity is None:
             export_intensity = self.use_intensity
-        if export_rgb == None:
+        if export_rgb is None:
             export_rgb = self.use_rgb
         if export_intensity:
             assert self.use_intensity
         if export_rgb:
             assert self.use_rgb
+        if _format is None:
+            _format = filename[-3:]
 
-        if filename[-3:] == 'txt':
+        if _format == 'txt':
             save_file = open(filename, 'w')
             for point in self.cloud:
                 print('%f %f %f' %(point[0], point[1], point[2]), end='', file=save_file) # location:= x,y,z
@@ -215,7 +217,7 @@ class pointcloud:
                 if export_rgb:
                     print(' %f %f %f' %(point[-3], point[-2], point[-1]), end='', file=save_file)
                 print(file=save_file)
-        elif filename[-3:] == 'bin':
+        elif _format == 'bin':
             import struct
             save_file = open(filename, 'wb')
             for point in self.cloud:
