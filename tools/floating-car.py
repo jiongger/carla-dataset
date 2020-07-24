@@ -4,10 +4,6 @@ import sys
 import time
 
 try:
-    sys.path.append(glob.glob('carla/dist/carla-*%d.%d-%s.egg' % (
-        sys.version_info.major,
-        sys.version_info.minor,
-        'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
@@ -73,7 +69,7 @@ def main():
         metavar='N',
         default=80,
         type=int,
-        help='number of vehicles in map'
+        help='number of vehicles in map (default: 80)'
     )
     argparser.add_argument(
         '-s',
@@ -154,7 +150,7 @@ def main():
         if args.mode == 'common':
             if os.path.exists(args.path) == False:
                 os.makedirs(args.path)
-            if args.save_as_kitti_format:
+            elif args.save_as_kitti_format:
                 import shutil
                 # create empty folders
                 if os.path.exists(os.path.join(args.path, 'calib')):
@@ -193,7 +189,7 @@ def main():
 
         # spawn civil vehicles
         batch = []
-        for spawn_point in spawn_points:
+        for spawn_point in selected_spawn_points:
             blueprint = random.choice(blueprints)
             if blueprint.has_attribute('color'):
                 color = random.choice(blueprint.get_attribute('color').recommended_values)
@@ -223,13 +219,14 @@ def main():
                 logging.error(response.error)
             else:
                 vehicles_list.append(response.actor_id)
-                ego = response # ego should be the last vehicle
+        ego = world.get_actor(vehicles_list[-1]) # ego should be the last vehicle
             
         # adjust spectator to proper position       
         spectator = world.get_spectator()
         # set spectator above the center 
-        location = ego_transform.location + carla.Location(x=-30,z=30)
-        rotation = ego_transform.rotation + carla.Rotation(pitch=-45)
+        location = ego_transform.location + carla.Location(x=-10*cos(ego_transform.rotation.yaw),
+                                                            y=10*sin(ego_transform.rotation.yaw), z=5)
+        rotation = carla.Rotation(pitch=-30, yaw=ego_transform.rotation.yaw)
         transform = carla.Transform(location, rotation)
         spectator.set_transform(transform)
 
@@ -240,7 +237,7 @@ def main():
         ego_height = ego.bounding_box.extent.z*2
         ego_center = ego.bounding_box.location
 
-        IMAGEX = 1200
+        IMAGEX = 1600
         IMAGEY = 900
 
         # Find the blueprint of the sensor
@@ -271,7 +268,7 @@ def main():
         # find lidar blueprint
         lidar_bp = world.get_blueprint_library().find('sensor.lidar.ray_cast')
         lidar_bp.set_attribute('channels',str(64))
-        lidar_bp.set_attribute('points_per_second',str(960000))
+        lidar_bp.set_attribute('points_per_second',str(1280000))
         lidar_bp.set_attribute('rotation_frequency',str(10))
         lidar_bp.set_attribute('sensor_tick', str(0.1))
         lidar_bp.set_attribute('upper_fov', str(0))
@@ -373,8 +370,9 @@ def main():
             # following mode
             if args.following == True:
                 ego_transform = ego.get_transform()
-                location = ego_transform.location + carla.Location(x=-30,z=30)
-                rotation = ego_transform.rotation + carla.Rotation(pitch=-45)
+                location = ego_transform.location + carla.Location(x=-10*cos(ego_transform.rotation.yaw),
+                                                                    y=10*sin(ego_transform.rotation.yaw), z=5)
+                rotation = carla.Rotation(pitch=-30, yaw=ego_transform.rotation.yaw)
                 transform = carla.Transform(location, rotation)
                 spectator.set_transform(transform)
             
