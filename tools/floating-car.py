@@ -154,6 +154,19 @@ def main():
         if args.mode == 'common':
             if os.path.exists(args.path) == False:
                 os.makedirs(args.path)
+            if args.save_as_kitti_format:
+                import shutil
+                # create empty folders
+                if os.path.exists(os.path.join(args.path, 'calib')):
+                    shutil.rmtree(os.path.join(args.path, 'calib'))
+                os.makedirs(os.path.join(args.path, 'calib'))
+                if os.path.exists(os.path.join(args.path, 'image_2')):
+                    shutil.rmtree(os.path.join(args.path, 'image_2'))
+                os.makedirs(os.path.join(args.path, 'image_2'))
+                if os.path.exists(os.path.join(args.path, 'velodyne')):
+                    shutil.rmtree(os.path.join(args.path, 'velodyne'))
+                os.makedirs(os.path.join(args.path, 'velodyne'))
+
 
         import numpy as np
         spawn_points = world.get_map().get_spawn_points()
@@ -226,7 +239,35 @@ def main():
         ego_width = ego.bounding_box.extent.y*2
         ego_height = ego.bounding_box.extent.z*2
         ego_center = ego.bounding_box.location
-        
+
+        IMAGEX = 1200
+        IMAGEY = 900
+
+        # Find the blueprint of the sensor
+        camera_bp = world.get_blueprint_library().find('sensor.camera.rgb')
+        camera_bp.set_attribute('image_size_x', str(IMAGEX))
+        camera_bp.set_attribute('image_size_y', str(IMAGEY))
+        camera_bp.set_attribute('fov', '120')
+        camera_bp.set_attribute('sensor_tick', '0.1')
+        ego_camera_location = carla.Location(0.8,0,1.7)
+        ego_camera_rotation = carla.Rotation(0,0,0)
+        ego_camera_transform = carla.Transform(ego_camera_location, ego_camera_rotation)
+
+        # set camera @ ego
+        ego_camera = world.spawn_actor(camera_bp, ego_camera_transform, attach_to=ego, attachment_type=carla.AttachmentType.Rigid)
+        def ego_camera_callback(RGBMeasurement):
+            if args.mode == 'common':
+                if args.save_as_kitti_format:
+                    RGBMeasurement.save_to_disk(os.path.join(args.path, 'image_2/%06d.png' %(7500+RGBMeasurement.frame)))
+                    #calib_file = open(os.path.join(args.path, 'calib/%06d.txt' %(7500+RGBMeasurement.frame)), 'a')
+                    #print('P0: %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e' %())
+                    #calib_file.close()
+                else:
+                    RGBMeasurement.save_to_disk(os.path.join(args.path, 'rgb_measurement_%d.png' %RGBMeasurement.frame))
+        sensors_list.append(ego_camera)
+        # camera : listen
+        ego_camera.listen(ego_camera_callback)
+
         # find lidar blueprint
         lidar_bp = world.get_blueprint_library().find('sensor.lidar.ray_cast')
         lidar_bp.set_attribute('channels',str(64))
@@ -235,10 +276,10 @@ def main():
         lidar_bp.set_attribute('sensor_tick', str(0.1))
         lidar_bp.set_attribute('upper_fov', str(0))
         lidar_bp.set_attribute('lower_fov', str(-24))
-        lidar_bp.set_attribute('range',str(60))
+        lidar_bp.set_attribute('range',str(120))
         ego_lidar_location = carla.Location(0,0, tan(pi/180*25)*ego_length/2 + ego_height)
-        lidar_rotation = carla.Rotation(0,0,0)
-        ego_lidar_transform = carla.Transform(ego_lidar_location,lidar_rotation)
+        ego_lidar_rotation = carla.Rotation(0,0,0)
+        ego_lidar_transform = carla.Transform(ego_lidar_location,ego_lidar_rotation)
 
         # set lidar @ ego
         ego_lidar = world.spawn_actor(lidar_bp,ego_lidar_transform,attach_to=ego,attachment_type=carla.AttachmentType.Rigid)
@@ -246,7 +287,9 @@ def main():
             if args.mode == 'common':
                 if args.save_as_kitti_format:
                     import struct
-                    save = open(os.path.join(args.path, '%06d.bin' %(7500+LidarMeasurement.frame)), 'wb')
+                    save = open(os.path.join(args.path, 'velodyne/%06d.bin' %(7500+LidarMeasurement.frame)), 'wb')
+                    #calib_file = open(os.path.join(args.path, 'calib/%06d.txt' %(7500+RGBMeasurement.frame)), 'a')
+                    #calib_file.close()
                 else:
                     save = open(os.path.join(args.path, 'lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
                     LidarMeasurement.save_to_disk(os.path.join(args.path, 'lidar_measurement_%d.ply' %LidarMeasurement.frame))
