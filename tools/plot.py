@@ -5,9 +5,10 @@ import matplotlib as plt
 import argparse
 
 import sys
+import os
 
-from pointcloud import pointcloud
-import plot_core
+from lib.pointcloud import pointcloud
+import lib.plot_core as plot_core
 
 FLAGS = argparse.ArgumentParser(
     description=__doc__)
@@ -51,8 +52,8 @@ FLAGS.add_argument(
     help='show figure'
 )
 FLAGS.add_argument(
-    '--axis',
-    metavar='A',
+    '--view',
+    metavar='V',
     type=int,
     default=2,
     help='specify the perspect of view, functional when plot 2d scatter(int, default: 2)\n\t front view:0\n\t side view:1\n\t: bird-eye view:2'
@@ -92,6 +93,13 @@ FLAGS.add_argument(
     help='left handed coordinate system'
 )
 FLAGS = FLAGS.parse_args()
+FIG_CONFIGS = {
+    'size': FLAGS.size,
+    'marker': FLAGS.marker,
+    'title': FLAGS.title,
+    'dpi': FLAGS.dpi,
+    'left_handed': FLAGS.left_handed
+}
 
 
 
@@ -100,15 +108,15 @@ def main():
     pc_list = []
     number_of_points = 0
     for filename in FLAGS.filename_list:
-        try:
-            pc_file = open(filename, 'r')
-        except IOError:
+        if os.path.exists(filename):
+            pass
+        else:
             if FLAGS.exception == 'skip':
                 print('ERROR: cannot open file %s, skipped.' %filename)
             else:
                 print('ERROR: cannot open file %s, aborted.' %filename)
                 sys.exit()
-        pc = pointcloud(pc_file)
+        pc = pointcloud(filename)
         number_of_points = number_of_points + pc.number_of_points
         pc_list.append(pc)
     
@@ -117,9 +125,9 @@ def main():
             pc.downsampling('fixed-step', FLAGS.upper_limitation_of_number_of_points/number_of_points)
 
     if FLAGS.plane:
-        plot_core.plot_2d(pc_list, FLAGS.axis, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi, FLAGS.left_handed)
+        plot_core.plot_2d(pc_list, FLAGS.view, save=FLAGS.save, show_figure=FLAGS.show_figure, args=FIG_CONFIGS)
     else:
-        plot_core.plot_3d(pc_list, FLAGS.size, FLAGS.marker, FLAGS.title, FLAGS.save, FLAGS.show_figure, FLAGS.dpi, FLAGS.left_handed)
+        raise NotImplementedError
 
 if __name__ == '__main__':
     main()

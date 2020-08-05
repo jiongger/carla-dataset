@@ -28,13 +28,13 @@ class pointcloud:
             points = []
             for line in raw_cloud:
                 point = [float(x) for x in line.rstrip('\n').split(' ')]
-                assert len(point) == 3+int(use_intensity)+3*int(use_rgb)
+                assert len(point) == 3+int(use_intensity)+3*int(use_rgb), (len(point),3+int(use_intensity)+3*int(use_rgb))
                 points.append(point)
             self.cloud = np.asarray(points)
         
         elif filename[-3:] == 'bin':
-            points = np.fromfile(filename)
-            assert len(points) % (3+int(use_intensity)+3*int(use_rgb)) == 0
+            points = np.fromfile(filename, dtype=np.float32)
+            assert len(points) % (3+int(use_intensity)+3*int(use_rgb)) == 0, (len(points),(3+int(use_intensity)+3*int(use_rgb)))
             points = np.reshape(points, (-1, 3+int(use_intensity)+3*int(use_rgb)))
             self.cloud = points.copy()
 
