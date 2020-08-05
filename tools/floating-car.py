@@ -4,7 +4,7 @@ import sys
 import time
 
 try:
-    sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
+    sys.path.append(glob.glob('carla/dist/carla-*%d.%d-%s.egg' % (
         sys.version_info.major,
         sys.version_info.minor,
         'win-amd64' if os.name == 'nt' else 'linux-x86_64'))[0])
@@ -18,7 +18,8 @@ import argparse
 import logging
 import random
 
-from math import sin, cos, tan, pi, sqrt
+from math import sin, cos, tan, pi, sqrt, atan, asin, acos
+import numpy as np
 
 # define some carla color
 red = carla.Color(255, 0, 0)
@@ -29,6 +30,69 @@ yellow = carla.Color(255, 255, 0)
 orange = carla.Color(255, 162, 0)
 white = carla.Color(255, 255, 255)
 
+def get_matrix(transform):
+    """
+    Creates matrix from carla transform.
+    """
+    rotation = transform.rotation
+    location = transform.location
+    c_y = np.cos(np.radians(rotation.yaw))
+    s_y = np.sin(np.radians(rotation.yaw))
+    c_r = np.cos(np.radians(rotation.roll))
+    s_r = np.sin(np.radians(rotation.roll))
+    c_p = np.cos(np.radians(rotation.pitch))
+    s_p = np.sin(np.radians(rotation.pitch))
+    matrix = np.matrix(np.identity(4))
+    matrix[0, 3] = location.x
+    matrix[1, 3] = location.y
+    matrix[2, 3] = location.z
+    matrix[0, 0] = c_p * c_y
+    matrix[0, 1] = -c_p * s_y
+    matrix[0, 2] = s_p
+    matrix[1, 0] = c_r * s_y + s_r * s_p * c_y
+    matrix[1, 1] = c_r * c_y - s_r * s_p * s_y
+    matrix[1, 2] = -s_r * c_p
+    matrix[2, 0] = s_r * s_y - c_r * s_p * c_y
+    matrix[2, 1] = s_r * c_y + c_r * s_p * s_y
+    matrix[2, 2] = c_r * c_p
+    return matrix
+
+def _create_bb_points(vehicle):
+    """
+    Returns 3D bounding box for a vehicle.
+    """
+    cords = np.zeros((9, 4))
+    extent = vehicle.bounding_box.extent
+    cords[0, :] = np.array([extent.x, extent.y, -extent.z, 1])
+    cords[1, :] = np.array([-extent.x, extent.y, -extent.z, 1])
+    cords[2, :] = np.array([-extent.x, -extent.y, -extent.z, 1])
+    cords[3, :] = np.array([extent.x, -extent.y, -extent.z, 1])
+    cords[4, :] = np.array([extent.x, extent.y, extent.z, 1])
+    cords[5, :] = np.array([-extent.x, extent.y, extent.z, 1])
+    cords[6, :] = np.array([-extent.x, -extent.y, extent.z, 1])
+    cords[7, :] = np.array([extent.x, -extent.y, extent.z, 1])
+    cords[8, :] = np.array([0,0,0,1])
+    return cords
+
+def _vehicle_to_world(cords, vehicle):
+    """
+    Transforms coordinates of a vehicle bounding box to world.
+    """
+    bb_transform = carla.Transform(vehicle.bounding_box.location)
+    bb_vehicle_matrix = get_matrix(bb_transform)
+    vehicle_world_matrix = get_matrix(vehicle.get_transform())
+    bb_world_matrix = np.dot(vehicle_world_matrix, bb_vehicle_matrix)
+    world_cords = np.dot(bb_world_matrix, np.transpose(cords))
+    return world_cords
+
+def _world_to_sensor(cords, sensor):
+    """
+    Transforms world coordinates to sensor.
+    """
+    sensor_world_matrix = get_matrix(sensor.get_transform())
+    world_sensor_matrix = np.linalg.inv(sensor_world_matrix)
+    sensor_cords = np.dot(world_sensor_matrix, cords)
+    return sensor_cords
 
 def main():
     argparser = argparse.ArgumentParser(
@@ -101,12 +165,15 @@ def main():
         action='store_true',
         help='save data as kitti format')
     argparser.add_argument(
-        '--following',
+        '--autopilot',
         action='store_true'
     )
     argparser.add_argument(
-        '--autopilot',
-        action='store_true'
+        '--kitti_split',
+        type=str,
+        default='training',
+        choices=['training', 'testing', 'val'],
+        help="kitti split (functional when 'save_as_kitti_format' is true)"
     )
     args = argparser.parse_args()
 
@@ -150,21 +217,26 @@ def main():
         if args.mode == 'common':
             if os.path.exists(args.path) == False:
                 os.makedirs(args.path)
-            elif args.save_as_kitti_format:
+            if args.save_as_kitti_format:
+                VELO_DIR = os.path.join(args.path, 'object', args.kitti_split, 'velodyne')
+                IMAGE_DIR = os.path.join(args.path, 'object', args.kitti_split, 'image_2')
+                LABEL_DIR = os.path.join(args.path, 'object', args.kitti_split, 'label_2')
+                CALIB_DIR = os.path.join(args.path, 'object', args.kitti_split, 'calib')        
                 import shutil
                 # create empty folders
-                if os.path.exists(os.path.join(args.path, 'calib')):
-                    shutil.rmtree(os.path.join(args.path, 'calib'))
-                os.makedirs(os.path.join(args.path, 'calib'))
-                if os.path.exists(os.path.join(args.path, 'image_2')):
-                    shutil.rmtree(os.path.join(args.path, 'image_2'))
-                os.makedirs(os.path.join(args.path, 'image_2'))
-                if os.path.exists(os.path.join(args.path, 'velodyne')):
-                    shutil.rmtree(os.path.join(args.path, 'velodyne'))
-                os.makedirs(os.path.join(args.path, 'velodyne'))
+                if os.path.exists(CALIB_DIR):
+                    shutil.rmtree(CALIB_DIR)
+                os.makedirs(CALIB_DIR)
+                if os.path.exists(IMAGE_DIR):
+                    shutil.rmtree(IMAGE_DIR)
+                os.makedirs(IMAGE_DIR)
+                if os.path.exists(VELO_DIR):
+                    shutil.rmtree(VELO_DIR)
+                os.makedirs(VELO_DIR)
+                if os.path.exists(LABEL_DIR):
+                    shutil.rmtree(LABEL_DIR)
+                os.makedirs(LABEL_DIR)
 
-
-        import numpy as np
         spawn_points = world.get_map().get_spawn_points()
         if args.spawn_point >= len(spawn_points) or args.spawn_point < 0:
             if args.spawn_point >= len(spawn_points):
@@ -187,8 +259,21 @@ def main():
         SetAutopilot = carla.command.SetAutopilot
         FutureActor = carla.command.FutureActor
 
-        # spawn civil vehicles
+        # find ego vehicle blueprint
+        ego_bp = world.get_blueprint_library().find('vehicle.tesla.model3')
+        ego_bp.set_attribute('role_name','ego')
+        ego_color = random.choice(ego_bp.get_attribute('color').recommended_values)
+        ego_bp.set_attribute('color',ego_color)
+
+        # spawn ego
         batch = []
+        ego_transform = ego_spawn_point
+        if args.autopilot:
+            batch.append(SpawnActor(ego_bp,ego_transform).then(SetAutopilot(FutureActor, True, traffic_manager.get_port())))
+        else:
+            batch.append(SpawnActor(ego_bp,ego_transform))
+
+        # spawn civil vehicles
         for spawn_point in selected_spawn_points:
             blueprint = random.choice(blueprints)
             if blueprint.has_attribute('color'):
@@ -197,21 +282,8 @@ def main():
             if blueprint.has_attribute('driver_id'):
                 driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
                 blueprint.set_attribute('driver_id', driver_id)
-            blueprint.set_attribute('role_name', 'autopilot')
+            blueprint.set_attribute('role_name', 'cvils')
             batch.append(SpawnActor(blueprint, spawn_point).then(SetAutopilot(FutureActor, True, traffic_manager.get_port())))
-
-        # find ego vehicle blueprint
-        ego_bp = world.get_blueprint_library().find('vehicle.tesla.model3')
-        ego_bp.set_attribute('role_name','ego')
-        ego_color = random.choice(ego_bp.get_attribute('color').recommended_values)
-        ego_bp.set_attribute('color',ego_color)
-
-        # spawn ego
-        ego_transform = ego_spawn_point
-        if args.autopilot:
-            batch.append(SpawnActor(ego_bp,ego_transform).then(SetAutopilot(FutureActor, True, traffic_manager.get_port())))
-        else:
-            batch.append(SpawnActor(ego_bp,ego_transform))
         
         # carla work (convert Carla.SpawnActor to Carla.Vehicle)        
         for response in client.apply_batch_sync(batch, synchronous_master):
@@ -219,16 +291,9 @@ def main():
                 logging.error(response.error)
             else:
                 vehicles_list.append(response.actor_id)
-        ego = world.get_actor(vehicles_list[-1]) # ego should be the last vehicle
-            
-        # adjust spectator to proper position       
-        spectator = world.get_spectator()
-        # set spectator above the center 
-        location = ego_transform.location + carla.Location(x=-10*cos(ego_transform.rotation.yaw),
-                                                            y=10*sin(ego_transform.rotation.yaw), z=5)
-        rotation = carla.Rotation(pitch=-30, yaw=ego_transform.rotation.yaw)
-        transform = carla.Transform(location, rotation)
-        spectator.set_transform(transform)
+                #print(world.get_actor(response.actor_id).attributes['role_name'])
+        ego = world.get_actor(vehicles_list[0]) # ego should be the first vehicle
+        assert ego.attributes['role_name'] == 'ego'
 
         # calculate vehicle 3d parameters
         ego_bbox = ego.bounding_box
@@ -245,7 +310,7 @@ def main():
         camera_bp.set_attribute('image_size_x', str(IMAGEX))
         camera_bp.set_attribute('image_size_y', str(IMAGEY))
         camera_bp.set_attribute('fov', '120')
-        camera_bp.set_attribute('sensor_tick', '0.1')
+        camera_bp.set_attribute('sensor_tick', '1')
         ego_camera_location = carla.Location(0.8,0,1.7)
         ego_camera_rotation = carla.Rotation(0,0,0)
         ego_camera_transform = carla.Transform(ego_camera_location, ego_camera_rotation)
@@ -255,8 +320,8 @@ def main():
         def ego_camera_callback(RGBMeasurement):
             if args.mode == 'common':
                 if args.save_as_kitti_format:
-                    RGBMeasurement.save_to_disk(os.path.join(args.path, 'image_2/%06d.png' %(7500+RGBMeasurement.frame)))
-                    #calib_file = open(os.path.join(args.path, 'calib/%06d.txt' %(7500+RGBMeasurement.frame)), 'a')
+                    RGBMeasurement.save_to_disk(os.path.join(IMAGE_DIR, '%06d.png' %RGBMeasurement.frame))
+                    #calib_file = open(os.path.join(CALIB_DIR, '%06d.txt' %RGBMeasurement.frame), 'w')
                     #print('P0: %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e %.12e' %())
                     #calib_file.close()
                 else:
@@ -274,7 +339,8 @@ def main():
         lidar_bp.set_attribute('upper_fov', str(0))
         lidar_bp.set_attribute('lower_fov', str(-24))
         lidar_bp.set_attribute('range',str(120))
-        ego_lidar_location = carla.Location(0,0, tan(pi/180*25)*ego_length/2 + ego_height)
+        lidar_height = tan(pi/180*25)*ego_length/2 + ego_height
+        ego_lidar_location = carla.Location(0,0, lidar_height)
         ego_lidar_rotation = carla.Rotation(0,0,0)
         ego_lidar_transform = carla.Transform(ego_lidar_location,ego_lidar_rotation)
 
@@ -284,12 +350,10 @@ def main():
             if args.mode == 'common':
                 if args.save_as_kitti_format:
                     import struct
-                    save = open(os.path.join(args.path, 'velodyne/%06d.bin' %(7500+LidarMeasurement.frame)), 'wb')
-                    #calib_file = open(os.path.join(args.path, 'calib/%06d.txt' %(7500+RGBMeasurement.frame)), 'a')
-                    #calib_file.close()
+                    save = open(os.path.join(VELO_DIR, '%06d.bin' %(LidarMeasurement.frame)), 'wb')
                 else:
-                    save = open(os.path.join(args.path, 'lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
-                    LidarMeasurement.save_to_disk(os.path.join(args.path, 'lidar_measurement_%d.ply' %LidarMeasurement.frame))
+                    save = open(os.path.join(args.path, 'ego_lidar_measurement_%d.txt' %LidarMeasurement.frame), 'w')
+                    LidarMeasurement.save_to_disk(os.path.join(args.path, 'ego_lidar_measurement_%d.ply' %LidarMeasurement.frame))
             else:
                 save = None
             if not args.save_as_kitti_format:
@@ -300,11 +364,68 @@ def main():
             if args.mode == 'common':
                 for point in LidarMeasurement:
                     if args.save_as_kitti_format:
-                        save.write(struct.pack('ffff', -point.y,point.x,-point.z,0.5))
+                        save.write(struct.pack('ffff', -point.y,-point.x,-point.z,0.5))
                     else:
                         print(point.x, point.y, point.z, file=save)
+                save.close()
+            
+            # generate kitti-style annotation
+            if args.mode == 'common' and args.save_as_kitti_format == True:
+                cvil_vehicles = world.get_actors(vehicles_list[1:])
+                save = open(os.path.join(LABEL_DIR, '%06d.txt' %(LidarMeasurement.frame)), 'w')
+
+                # ego pos := lidar pos
+                ego_pos = ego_lidar.get_transform()
+                ego_x, ego_y, ego_z = ego_pos.location.x, -ego_pos.location.y, ego_pos.location.z
+                ego_pitch, ego_roll = -ego.get_transform().rotation.pitch, ego.get_transform().rotation.roll
+                ego_yaw = -ego.get_transform().rotation.yaw
+
+                for vehicle in cvil_vehicles:
+                    veh_pos = vehicle.get_transform()
+                    #veh_x, veh_y, veh_z = veh_pos.location.x, veh_pos.location.y, veh_pos.location.z
+                    veh_pitch, veh_roll = -vehicle.get_transform().rotation.pitch, vehicle.get_transform().rotation.roll
+                    veh_yaw = -veh_pos.rotation.yaw
+                    #print(ego_lidar.get_transform())       >EQUAL
+                    #print(ego.get_transform())             >EQUAL
+                    #print(veh_x,veh_y,veh_z)
+
+                    # transform vehicle space to lidar space
+                    veh_bbox = _vehicle_to_world(_create_bb_points(vehicle), vehicle)
+                    veh_box = _world_to_sensor(veh_bbox, ego_lidar).transpose()
+                    
+                    # sensor(>CAR?) to KITTI velodyne
+                    # i.e. x:= forward y:=right z:=up ==> x:=forward y:=left z:up
+                    for i in range(len(veh_box)):
+                        veh_box[i,0], veh_box[i,1], veh_box[i,2] = veh_box[i,0],-veh_box[i,1],veh_box[i,2]
+                    veh_x, veh_y, veh_z = veh_box[8,0], veh_box[8,1], veh_box[8,2]
+                    #print('->>>',veh_x,veh_y,veh_z)
+
+                    veh_length = vehicle.bounding_box.extent.x*2
+                    veh_width = vehicle.bounding_box.extent.y*2
+                    veh_height = vehicle.bounding_box.location.z*2
+
+                    # refine bounding box extent
+                    veh_w = veh_width*cos((veh_roll-ego_roll)/180*pi)+veh_height*sin(abs(veh_roll-ego_roll)/180*pi) + 0.2
+                    veh_l = veh_length*cos((veh_pitch-ego_pitch)/180*pi)+veh_height*sin(abs(veh_pitch-ego_pitch)/180*pi) + 0.2
+                    veh_h = veh_length*sin(abs(veh_pitch-ego_pitch)/180*pi)+veh_height*cos((veh_roll-ego_roll)/180*pi)+veh_width*sin(abs(veh_roll-ego_roll)/180*pi) + 0.8
+                    #print('====',veh_h,veh_l,veh_w)
+
+                    # calculate rotation-y(ry)
+                    yaw = -pi/2 - (veh_yaw-ego_yaw)/180*pi
+                    if yaw < -pi: yaw = yaw + 2*pi
+                    if yaw > pi: yaw = yaw - 2*pi
+                    
+                    print('%s %.2f %d %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f'
+                        %('Car', 0, 0, atan(-(veh_x-ego_x)/(veh_y-ego_y)), # alpha(rad)
+                            -100, -100, -100, -100, # no corresponding images
+                            veh_h, veh_w, veh_l, # size := h,w,l
+                            -veh_y, -veh_z, veh_x, # x,y,z <- location:-y,-z,x
+                            yaw, 1), # yaw(rad)
+                            file=save)
+                save.close()
+
         sensors_list.append(ego_lidar)
-        # lidar: listen
+        # lidar : listen
         ego_lidar.listen(ego_lidar_callback)
         
         DEBUG_MODE = False
@@ -367,15 +488,6 @@ def main():
                 current_w = next_w.copy()                 
                 time.sleep(some_time)
             
-            # following mode
-            if args.following == True:
-                ego_transform = ego.get_transform()
-                location = ego_transform.location + carla.Location(x=-10*cos(ego_transform.rotation.yaw),
-                                                                    y=10*sin(ego_transform.rotation.yaw), z=5)
-                rotation = carla.Rotation(pitch=-30, yaw=ego_transform.rotation.yaw)
-                transform = carla.Transform(location, rotation)
-                spectator.set_transform(transform)
-            
             if args.sync and synchronous_master:
                 world.tick()
             else:
@@ -397,6 +509,19 @@ def main():
             sensor.stop()
         print('\ndestroying %d sensors' % len(sensors_list))
         client.apply_batch([carla.command.DestroyActor(x.id) for x in sensors_list])
+
+        time.sleep(0.5)
+
+        if args.mode == 'common' and args.save_as_kitti_format == True:
+            import lib.carla_utils as carla_utils
+            
+            print('\nexecuting clean up\n')
+            carla_utils.clean_up(args.path, args.kitti_split)
+            print('\ndone clean up\n')
+            
+            print('\nexecuting refinement\n')
+            carla_utils.refinement(args.path, args.kitti_split)
+            print('\ndone refinement\n')
 
         time.sleep(0.5)
 
