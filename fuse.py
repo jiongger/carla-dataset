@@ -1,4 +1,4 @@
-from pointcloud import pointcloud
+from tools.lib.pointcloud import pointcloud
 
 import argparse
 import os
@@ -110,8 +110,6 @@ def main():
     print('retrieved %d shots from %d vehicles in total' %(total_file_count, FLAGS.number_of_coperception_vehicles))
     assert total_file_count > 0
     
-    rot_yaw_90 = np.asarray([[0,1,0],[-1,0,0],[0,0,1]])
-    rot_yaw_anti_90 = -rot_yaw_90
     import plot_core
 
     if FLAGS.order == 'T':
@@ -123,13 +121,14 @@ def main():
             infos = [ float(x) for x in infile.readline().rstrip('\n').split(' ') ]
             master_location = np.asarray(infos[2:5])
             master_orientation = np.asarray(infos[5:8])
-            master_orientation[2] = -master_orientation[2]
-            master_rot = np.asarray([0,0,-90])
             infile.close()
             master_pc = pointcloud(pc_file_list[MASTER_INDEX][i], skip=1, use_intensity=False, use_rgb=False)
+            # transfer to car space
             master_pc.inverse('z')
-            master_pc.save_to_disk('%s.bin' %(pc_file_list[MASTER_INDEX][i][0:-3]+'_k'))
+            master_rot = np.asarray([0,0,-90])
             master_pc.rotation(master_rot)
+            # transfer to global space
+            master_orientation[2] = -master_orientation[2] # yaw = -yaw  :: clock-wise -> anti clock-wise
             master_pc.rotation(master_orientation)
             master_pc.translation(master_location)
             master_pc.shade()
@@ -141,12 +140,14 @@ def main():
                 infos = [ float(x) for x in infile.readline().rstrip('\n').split(' ') ]
                 assist_location = np.asarray(infos[2:5])
                 assist_orientation = np.asarray(infos[5:8])
-                assist_orientation[2] = -assist_orientation[2]
-                assist_rot = np.asarray([0,0,-90])
                 infile.close()
                 assist_pc = pointcloud(assist_pc_file[i], skip=1, use_intensity=False, use_rgb=False)
+                # transfer to car space
                 assist_pc.inverse('z')
+                assist_rot = np.asarray([0,0,-90])
                 assist_pc.rotation(assist_rot)
+                # transfer to global space
+                assist_orientation[2] = -assist_orientation[2] # yaw = -yaw  :: clock-wise -> anti clock-wise
                 assist_pc.rotation(assist_orientation)
                 assist_pc.translation(assist_location)
                 assist_pc.shade()
@@ -154,9 +155,9 @@ def main():
             if FLAGS.coordinate == 'L':
                 master_pc.translation(-master_location)
                 master_pc.rotation(-master_orientation)
-            master_pc.inverse('z')
-            master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)))
             #plot_core.plot_2d([master_pc], size=0.1, left_handed=True)
+            master_pc.inverse('y') # y = -y  :: left-handed -> right-handed
+            master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, 'time%d.txt' %(i+1)))
             #master_pc.save_to_disk(os.path.join(FLAGS.save_results_to, '%06d.bin' %(9000+i+1)), True)
     
     elif FLAGS.order == 'V':
