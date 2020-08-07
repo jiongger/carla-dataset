@@ -104,3 +104,26 @@ def refinement(BASE_DIR, SPLIT, MINIMUM_CLUSTER_SIZE=15):
         plot_2d_with_bbox(pc, view=2, bbox_list=bbox_list_all, save=bev_file1, show_figure=False, args={'line_color':'red', 'xmin':-120, 'xmax':120, 'ymin':-120, 'ymax':120})
         plot_2d_with_bbox(pc, view=2, bbox_list=bbox_list, save=bev_file2, show_figure=False, args={'line_color':'blue', 'xmin':-120, 'xmax':120, 'ymin':-120, 'ymax':120})
         plot_2d_with_bbox(pc, view=1, bbox_list=bbox_list_all, save=bev_file3, show_figure=False, args={'line_color':'red', 'xmin':-120, 'xmax':120, 'ymin':-10, 'ymax':10})
+
+def build_kitti_structure(PATH, SPLIT, LIDAR, CAMERA):
+    VELO_DIR = os.path.join(PATH, 'object', SPLIT, 'velodyne') if LIDAR else None
+    IMAGE_DIR = os.path.join(PATH, 'object', SPLIT, 'image_2') if CAMERA else None
+    LABEL_DIR = os.path.join(PATH, 'object', SPLIT, 'label_2') if LIDAR else None
+    CALIB_DIR = os.path.join(PATH, 'object', SPLIT, 'calib') if CAMERA else None
+    import shutil
+    # create empty folders
+    if CAMERA:
+        if os.path.exists(CALIB_DIR):
+            shutil.rmtree(CALIB_DIR)
+        os.makedirs(CALIB_DIR)
+        if os.path.exists(IMAGE_DIR):
+            shutil.rmtree(IMAGE_DIR)
+        os.makedirs(IMAGE_DIR)
+    if LIDAR:
+        if os.path.exists(VELO_DIR):
+            shutil.rmtree(VELO_DIR)
+        os.makedirs(VELO_DIR)
+        if os.path.exists(LABEL_DIR):
+            shutil.rmtree(LABEL_DIR)
+        os.makedirs(LABEL_DIR)
+    return {'velo_dir':VELO_DIR, 'label_dir':LABEL_DIR, 'image_dir':IMAGE_DIR, 'calib_dir':CALIB_DIR}
