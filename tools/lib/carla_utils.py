@@ -6,7 +6,7 @@ import lib.roipool3d.roipool3d_utils as roipool3d_utils
 import lib.object3d as object3d
 import lib.bbox3d as bbox3d
 
-def clean_up(BASE_DIR, SPLIT):
+def clean_up(BASE_DIR, SPLIT, skip=20):
     # remove unnecessary label files
     VELO_DIR = os.path.join(BASE_DIR, 'object', SPLIT, 'velodyne')
     LABEL_DIR = os.path.join(BASE_DIR, 'object', SPLIT, 'label_2')
@@ -16,11 +16,12 @@ def clean_up(BASE_DIR, SPLIT):
         os.makedirs(os.path.join(BASE_DIR, 'ImageSets'))
 
     index_file = open(os.path.join(BASE_DIR, 'ImageSets', SPLIT+'.txt'), 'w')
-    label_list = os.listdir(LABEL_DIR)
-    for index,label_name in enumerate(label_list.copy()):
+    label_list = os.listdir(LABEL_DIR).copy()
+    label_list.sort()
+    for index,label_name in enumerate(label_list):
         velo_name = label_name[:-4] + '.bin'
         print(index, label_name)
-        if index<20: # clean preliminatry files
+        if index<skip: # clean preliminatry files
             os.remove(os.path.join(LABEL_DIR, label_name))
             if os.path.exists(os.path.join(VELO_DIR, velo_name)):
                 os.remove(os.path.join(VELO_DIR, velo_name))
@@ -105,6 +106,7 @@ def refinement(BASE_DIR, SPLIT, MINIMUM_CLUSTER_SIZE=15):
         plot_2d_with_bbox(pc, view=2, bbox_list=bbox_list, save=bev_file2, show_figure=False, args={'line_color':'blue', 'xmin':-120, 'xmax':120, 'ymin':-120, 'ymax':120})
         plot_2d_with_bbox(pc, view=1, bbox_list=bbox_list_all, save=bev_file3, show_figure=False, args={'line_color':'red', 'xmin':-120, 'xmax':120, 'ymin':-10, 'ymax':10})
 
+
 def build_kitti_structure(PATH, SPLIT, LIDAR, CAMERA):
     VELO_DIR = os.path.join(PATH, 'object', SPLIT, 'velodyne') if LIDAR else None
     IMAGE_DIR = os.path.join(PATH, 'object', SPLIT, 'image_2') if CAMERA else None
@@ -127,3 +129,18 @@ def build_kitti_structure(PATH, SPLIT, LIDAR, CAMERA):
             shutil.rmtree(LABEL_DIR)
         os.makedirs(LABEL_DIR)
     return {'velo_dir':VELO_DIR, 'label_dir':LABEL_DIR, 'image_dir':IMAGE_DIR, 'calib_dir':CALIB_DIR}
+
+
+def ego_imu_callback(imu, ego_imu_log):
+    print(imu.frame, imu.timestamp, 
+            imu.transform.location.x, imu.transform.location.y, imu.transform.location.z, 
+            imu.transform.rotation.roll, imu.transform.rotation.pitch, imu.transform.rotation.yaw, 
+            imu.accelerometer.x, imu.accelerometer.y, imu.accelerometer.z, 
+            imu.gyroscope.x, imu.gyroscope.y, imu.gyroscope.z, 
+            imu.compass, file=ego_imu_log)
+
+def ego_gnss_callback(gnss, ego_gnss_log):
+    print(gnss.frame, gnss.timestamp, 
+                gnss.transform.location.x, gnss.transform.location.y, gnss.transform.location.z,
+                gnss.transform.rotation.roll, gnss.transform.rotation.pitch, gnss.transform.rotation.yaw,
+                gnss.latitude, gnss.longitude, gnss.altitude, file=ego_gnss_log)

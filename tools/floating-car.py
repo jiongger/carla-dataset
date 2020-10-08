@@ -60,8 +60,9 @@ def get_matrix(transform):
 def _create_bb_points(vehicle):
     """
     Returns 3D bounding box for a vehicle.
+    includes location ([8,:3]) & orientation ([9,:3])
     """
-    cords = np.zeros((9, 4))
+    cords = np.zeros((10, 4))
     extent = vehicle.bounding_box.extent
     cords[0, :] = np.array([extent.x, extent.y, -extent.z, 1])
     cords[1, :] = np.array([-extent.x, extent.y, -extent.z, 1])
@@ -72,6 +73,11 @@ def _create_bb_points(vehicle):
     cords[6, :] = np.array([-extent.x, -extent.y, extent.z, 1])
     cords[7, :] = np.array([extent.x, -extent.y, extent.z, 1])
     cords[8, :] = np.array([0,0,0,1])
+    orient = vehicle.get_transform().rotation.get_forward_vector()
+    #rotation = vehicle.get_transform().rotation
+    cords[9, :] = np.array([orient.x, orient.y, orient.z, 1])
+    #print(np.radians(rotation.roll),np.radians(rotation.pitch),np.radians(rotation.yaw))
+    #print('==',orient.x,orient.y,orient.z)
     return cords
 
 def _vehicle_to_world(cords, vehicle):
@@ -374,17 +380,9 @@ def main():
                 cvil_vehicles = world.get_actors(vehicles_list[1:])
                 save = open(os.path.join(LABEL_DIR, '%06d.txt' %(LidarMeasurement.frame)), 'w')
 
-                # ego pos := lidar pos
-                ego_pos = ego_lidar.get_transform()
-                ego_x, ego_y, ego_z = ego_pos.location.x, -ego_pos.location.y, ego_pos.location.z
-                ego_pitch, ego_roll = -ego.get_transform().rotation.pitch, ego.get_transform().rotation.roll
-                ego_yaw = -ego.get_transform().rotation.yaw
-
                 for vehicle in cvil_vehicles:
-                    veh_pos = vehicle.get_transform()
+                    #veh_pos = vehicle.get_transform()
                     #veh_x, veh_y, veh_z = veh_pos.location.x, veh_pos.location.y, veh_pos.location.z
-                    veh_pitch, veh_roll = -vehicle.get_transform().rotation.pitch, vehicle.get_transform().rotation.roll
-                    veh_yaw = -veh_pos.rotation.yaw
                     #print(ego_lidar.get_transform())       >EQUAL
                     #print(ego.get_transform())             >EQUAL
                     #print(veh_x,veh_y,veh_z)
@@ -398,29 +396,58 @@ def main():
                     for i in range(len(veh_box)):
                         veh_box[i,0], veh_box[i,1], veh_box[i,2] = veh_box[i,0],-veh_box[i,1],veh_box[i,2]
                     veh_x, veh_y, veh_z = veh_box[8,0], veh_box[8,1], veh_box[8,2]
-                    #print('->>>',veh_x,veh_y,veh_z)
+                    dx, dy, dz = veh_box[9,0] - veh_x, veh_box[9,1] - veh_y, veh_box[9,2] - veh_z
+                    #### roll, pitch, yaw here are measured in radians ####
+                    # calculate roll
+                    if dz != 0:
+                        if dz > 0:
+                            veh_roll = atan(-dy/dz)
+                        elif dy != 0:
+                            veh_roll = pi*np.sign(-dy) + atan(-dy/dz)
+                        else:
+                            veh_roll = pi
+                    else:
+                        veh_roll = np.sign(-dy)*pi/2
+                    # calculate pitch
+                    if dz != 0:
+                        if dz > 0:
+                            veh_pitch = atan(dx/dz)
+                        elif dx != 0:
+                            veh_pitch = pi*np.sign(dx) + atan(dx/dz)
+                        else:
+                            veh_pitch = pi
+                    else:
+                        veh_pitch = np.sign(dx)*pi/2
+                    # calculate yaw:
+                    if dy != 0:
+                        if dy < 0:
+                            veh_yaw = atan(dx/dy)
+                        elif dx != 0:
+                            veh_yaw = pi*np.sign(-dx) + atan(dx/dy)
+                        else:
+                            veh_yaw = pi
+                    else:
+                        veh_yaw = np.sign(-dx)*pi/2
+
+                    print(dx,dy,dz)
+                    print('====', veh_roll,veh_pitch,veh_yaw)
 
                     veh_length = vehicle.bounding_box.extent.x*2
                     veh_width = vehicle.bounding_box.extent.y*2
-                    veh_height = vehicle.bounding_box.location.z*2
+                    veh_height = vehicle.bounding_box.extent.z*2
 
                     # refine bounding box extent
-                    veh_w = veh_width*cos((veh_roll-ego_roll)/180*pi)+veh_height*sin(abs(veh_roll-ego_roll)/180*pi) + 0.2
-                    veh_l = veh_length*cos((veh_pitch-ego_pitch)/180*pi)+veh_height*sin(abs(veh_pitch-ego_pitch)/180*pi) + 0.2
-                    veh_h = veh_length*sin(abs(veh_pitch-ego_pitch)/180*pi)+veh_height*cos((veh_roll-ego_roll)/180*pi)+veh_width*sin(abs(veh_roll-ego_roll)/180*pi) + 0.8
-                    #print('====',veh_h,veh_l,veh_w)
-
-                    # calculate rotation-y(ry)
-                    yaw = -pi/2 - (veh_yaw-ego_yaw)/180*pi
-                    if yaw < -pi: yaw = yaw + 2*pi
-                    if yaw > pi: yaw = yaw - 2*pi
+                    veh_w = abs(veh_width*sin(veh_roll))+abs(veh_height*cos(veh_roll)) + 0.2
+                    veh_l = abs(veh_length*sin(veh_pitch))+abs(veh_height*cos(veh_pitch)) + 0.2
+                    veh_h = abs(veh_length*cos(veh_pitch))+abs(veh_height*sin(veh_roll))+abs(veh_width*cos(veh_roll)) + 0.2
+                    print('****',veh_height,veh_width,veh_length,'-->>',veh_h,veh_w,veh_l)
                     
                     print('%s %.2f %d %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f'
-                        %('Car', 0, 0, atan(-(veh_x-ego_x)/(veh_y-ego_y)), # alpha(rad)
+                        %('Car', 0, 0, atan(-veh_x/veh_y), # alpha(rad)
                             -100, -100, -100, -100, # no corresponding images
                             veh_h, veh_w, veh_l, # size := h,w,l
                             -veh_y, -veh_z, veh_x, # x,y,z <- location:-y,-z,x
-                            yaw, 1), # yaw(rad)
+                            veh_yaw, 1), # yaw(rad)
                             file=save)
                 save.close()
 
@@ -513,7 +540,10 @@ def main():
         time.sleep(0.5)
 
         if args.mode == 'common' and args.save_as_kitti_format == True:
+
             import lib.carla_utils as carla_utils
+            rot = carla.Rotation(0,0,0)
+            print(rot.get_forward_vector())
             
             print('\nexecuting clean up\n')
             carla_utils.clean_up(args.path, args.kitti_split)

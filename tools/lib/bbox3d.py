@@ -17,7 +17,7 @@ class bbox3d(object):
         if x is not None: self.x = x 
         if y is not None: self.y = y 
         if z is not None: self.z = z 
-        if ry is not None: self.ry = ry 
+        if ry is not None: self.ry = ry
     def set_label(self, label):
         self.label = label
     
@@ -51,6 +51,11 @@ class bbox3d(object):
         self.set_value(x=float(infos[11]), y=float(infos[12]), z=float(infos[13]), 
                             h=float(infos[8]), w=float(infos[9]), l=float(infos[10]), ry=float(infos[14]))
 
+    def from_simplified_annotation(self, label):
+        infos = label.rstrip('\n').split(' ')
+        self.set_value(x=float(infos[5]), y=float(infos[6]), z=float(infos[7]), 
+                            h=float(infos[2]), w=float(infos[3]), l=float(infos[4]), ry=float(infos[8]))
+
     def copy(self):
         return self.__init__(
             self.x, self.y, self.z,
@@ -68,4 +73,11 @@ def from_kitti_annotation(label):
     bbox = bbox3d()
     bbox.set_value(x=float(infos[11]), y=float(infos[12]), z=float(infos[13]), 
                         h=float(infos[8]), w=float(infos[9]), l=float(infos[10]), ry=float(infos[14]))
+    return bbox
+
+def from_simplified_annotation(label):
+    infos = label.rstrip('\n').split(' ')
+    bbox = bbox3d()
+    bbox.set_value(x=float(infos[5]), y=float(infos[6]), z=float(infos[7]), 
+                        h=float(infos[2]), w=float(infos[3]), l=float(infos[4]), ry=float(infos[8]))
     return bbox

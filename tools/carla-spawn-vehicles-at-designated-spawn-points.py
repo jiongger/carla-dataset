@@ -197,12 +197,14 @@ def main():
         spawn_center = np.array([0,0,0])
         for point_index in selected_ego_spawn_points_index:
             spawn_point = spawn_points[point_index]
-            spawn_center = spawn_center + np.array([spawn_point.x, spawn_point.y, spawn_point.z])
+            spawn_location = spawn_point.location
+            spawn_center = spawn_center + np.array([spawn_location.x, spawn_location.y, spawn_location.z])
             selected_ego_spawn_points.append(spawn_point)
         spawn_center = spawn_center/len(selected_ego_spawn_points_index)
         for index,spawn_point in enumerate(spawn_points):
             if index in selected_ego_spawn_points_index: continue
-            if (spawn_point.x - spawn_center[0])**2 + (spawn_point.y - spawn_center[1])**2 + (spawn_point.z - spawn_center[2])**2 <= SPAWN_RANGE:
+            spawn_location = spawn_point.location
+            if (spawn_location.x - spawn_center[0])**2 + (spawn_location.y - spawn_center[1])**2 + (spawn_location.z - spawn_center[2])**2 <= SPAWN_RANGE:
                 selected_spawn_points.append(spawn_point)
         selected_spawn_points = np.random.choice(selected_spawn_points, size=int(len(selected_spawn_points)*SPAWN_RATIO), replace=False) # choose some spawn points randomly
 
@@ -215,7 +217,7 @@ def main():
             ego_bp.set_attribute('role_name',str(STAT_ID))
             ego_color = random.choice(ego_bp.get_attribute('color').recommended_values)
             ego_bp.set_attribute('color',ego_color)
-            ego_transform = spawn_points[spawn_point]
+            ego_transform = spawn_point
             batch.append(SpawnActor(ego_bp,ego_transform).then(SetAutopilot(FutureActor, True, traffic_manager.get_port())))
         
         # carla work (convert Carla.SpawnActor to Carla.Vehicle)
@@ -228,7 +230,7 @@ def main():
 
         # spawn civil vehicles
         batch = []
-        for spawn_point_index in selected_spawn_points:
+        for spawn_point in selected_spawn_points:
             STAT_ID = STAT_ID + 1
             blueprint = random.choice(blueprints)
             if blueprint.has_attribute('color'):
@@ -238,7 +240,7 @@ def main():
                 driver_id = random.choice(blueprint.get_attribute('driver_id').recommended_values)
                 blueprint.set_attribute('driver_id', driver_id)
             blueprint.set_attribute('role_name', str(STAT_ID))
-            batch.append(SpawnActor(blueprint, spawn_points[spawn_point_index]).then(SetAutopilot(FutureActor, True, traffic_manager.get_port())))
+            batch.append(SpawnActor(blueprint, spawn_point).then(SetAutopilot(FutureActor, True, traffic_manager.get_port())))
 
         for response in client.apply_batch_sync(batch, synchronous_master):
             if response.error:
@@ -276,6 +278,8 @@ def main():
             lidar_bp.set_attribute('range',str(60))
         if args.camera:
             # find rgb camera blueprint
+            IMAGEX = 1920
+            IMAGEY = 1080
             camera_bp = world.get_blueprint_library().find('sensor.camera.rgb')
             camera_bp.set_attribute('image_size_x', str(IMAGEX))
             camera_bp.set_attribute('image_size_y', str(IMAGEY))
@@ -335,13 +339,13 @@ def main():
                     if os.path.exists(os.path.join(PATH, ego.attributes['role_name'])) == False:
                         os.makedirs(os.path.join(PATH, ego.attributes['role_name']))
                     if args.save_as_kitti_format:
-                        VELO_DIR = os.path.join((PATH, ego.attributes['role_name'], 'object', SPLIT, 'velodyne'))
-                        LABEL_DIR = os.path.join((PATH, ego.attributes['role_name'], 'object', SPLIT, 'label_2'))
+                        VELO_DIR = os.path.join(PATH, ego.attributes['role_name'], 'object', SPLIT, 'velodyne')
+                        LABEL_DIR = os.path.join(PATH, ego.attributes['role_name'], 'object', SPLIT, 'label_2')
                         if os.path.exists(VELO_DIR) == False:
                             os.makedirs(VELO_DIR)
                         if os.path.exists(LABEL_DIR) == False:
                             os.makedirs(LABEL_DIR)
-                lidar_height = tan(pi/180*25)*ego.bounding_box.extent.x + ego.bounding_box.extent.y*2
+                lidar_height = tan(pi/180*25)*ego.bounding_box.extent.x + ego.bounding_box.extent.z*2
                 ego_lidar_location = carla.Location(0,0, lidar_height)
                 lidar_rotation = carla.Rotation(0,0,0)
                 ego_lidar_transform = carla.Transform(ego_lidar_location,lidar_rotation)
@@ -373,7 +377,7 @@ def main():
                         world_frame = world.get_snapshot().frame
                         ego_x, ego_y, ego_z = ego.get_location().x, -ego.get_location().y, ego.get_location().z
                         ego_yaw = -ego.get_transform().rotation.yaw
-                        cvil_vehicles = world.get_actors(vehicles_list[:-1])
+                        cvil_vehicles = world.get_actors(vehicles_list[1:])
                         save = open(os.path.join(LABEL_DIR, '%06d.txt' %(world_frame)), 'w')
                         for vehicle in cvil_vehicles:
                             veh_bbox = vehicle.bounding_box
@@ -437,7 +441,7 @@ def main():
         if args.mode.find('debug') >= 0:
             
             DEBUG_MODE = True
-            some_time = 0.1
+            some_time = world.get_settings().fixed_delta_seconds
             debug = world.debug
             def draw_transform(debug, trans, col=carla.Color(255, 0, 0), lt=-1):
                 debug.draw_arrow(
@@ -456,7 +460,7 @@ def main():
             if args.mode == 'debug-all':
                 debug_list = world.get_actors(vehicles_list)
             elif args.mode == 'debug-ego':
-                debug_list = ego
+                debug_list = egos
             # preprocess debug vehicle waypoints
             current_w = []
             for vehicle in debug_list:
