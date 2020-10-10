@@ -8,3 +8,5 @@
 /**/*.log
 *.bin
 *.png
+*.pkl
+*.rar
