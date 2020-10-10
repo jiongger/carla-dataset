@@ -79,7 +79,7 @@ argparser.add_argument(
 argparser.add_argument(
     '--path',
     metavar='P',
-    default='../logs',
+    default='logs',
     type=str,
     help='path/to/save/sensor/data')
 argparser.add_argument(
@@ -111,6 +111,11 @@ argparser.add_argument(
     action='store_true',
     default=False,
     help='set RGE camera on ego vehicle(s)'
+)
+argparser.add_argument(
+    '--sence',
+    type=str,
+    default='opposite'
 )
 args = argparser.parse_args()
 PATH = args.path
@@ -147,11 +152,21 @@ def main():
 
         spawn_points = world.get_map().get_spawn_points() # list: carla.transform
         selected_spawn_points = [] # list: carla.transform
-        selected_ego_spawn_points_index = [62,13] # list: int
-        selected_ego_destination_points_index = [29,57] # list: int
-        # opposite: 62,13 -> 29,57
-        # cross: 62,228 -> 29,?
-        # parallel: 61,62 -> 28,29
+        if args.sence == 'opposite':
+            selected_ego_spawn_points_index = [62,13] # list: int
+            selected_ego_destination_points_index = [110,57] # list: int        
+        elif args.sence == 'cross':
+            selected_ego_spawn_points_index = [62,228] # list: int
+            selected_ego_destination_points_index = [110,200] # list: int
+        elif args.sence == 'parallel':
+            selected_ego_spawn_points_index = [63,62] # list: int
+            selected_ego_destination_points_index = [109,110] # list: int
+        else:
+            selected_ego_spawn_points_index = [62,228] # list: int
+            selected_ego_destination_points_index = [110,200] # list: int
+        # opposite: 62,13 -> 110,57
+        # cross: 62,228 -> 110,200
+        # parallel: 63,62 -> 109,110
         selected_ego_spawn_points = [] # list: carla.transform
 
         traffic_manager = client.get_trafficmanager(args.tm_port)
@@ -334,68 +349,65 @@ def main():
 
 
         if args.lidar:
-            def ego_lidar_callback(LidarMeasurement,VELO_DIR,LABEL_DIR):
+            def ego_lidar_callback(LidarMeasurement,VELO_DIR,LABEL_DIR,ego):
                 import struct
                 save = open(os.path.join(VELO_DIR, '%06d.bin' %(LidarMeasurement.frame)), 'wb')
                 for point in LidarMeasurement:
                     save.write(struct.pack('ffff', -point.y,-point.x,-point.z,0.5))
                 save.close()
                 # generate ground truth
-                world_frame = world.get_snapshot().frame
                 ego_x, ego_y, ego_z = ego.get_location().x, -ego.get_location().y, ego.get_location().z
                 ego_yaw = -ego.get_transform().rotation.yaw
-                cvil_vehicles = world.get_actors(vehicles_list[len(egos):])
-                save = open(os.path.join(LABEL_DIR, '%06d.txt' %(world_frame)), 'w')
-                for vehicle in cvil_vehicles:
+                vehicles = world.get_actors(vehicles_list)
+                save = open(os.path.join(LABEL_DIR, '%06d.txt' %(LidarMeasurement.frame)), 'w')
+                for vehicle in vehicles:
                     veh_bbox = vehicle.bounding_box
                     veh_x, veh_y, veh_z = vehicle.get_location().x, -vehicle.get_location().y, vehicle.get_location().z
                     #print(veh_bbox.location.z)
                     veh_yaw = -vehicle.get_transform().rotation.yaw
-                    if vehicle.attributes['role_name'] in ego_names: continue
-                    else:
-                        yaw = -pi/2 -(veh_yaw-ego_yaw)/180*pi
-                        if yaw < -pi: yaw = yaw + 2*pi
-                        if yaw > pi: yaw = yaw - 2*pi
-                        print('%s %s %.2f %.2f %.2f %.2f %.2f %.2f %.2f'
-                            %('Car', vehicle.attributes['role_name'], 
-                                veh_bbox.extent.z*2,veh_bbox.extent.y*2,veh_bbox.extent.x*2, # size := h,w,l
-                                -((veh_y-ego_y)*cos((ego_yaw)/180*pi)-(veh_x-ego_x)*sin((ego_yaw)/180*pi)), # x -> location:-y
-                                -((veh_z+veh_bbox.location.z)-(ego_z+lidar_height)), # y -> location:-z
-                                (veh_x-ego_x)*cos((ego_yaw)/180*pi)+(veh_y-ego_y)*sin((ego_yaw)/180*pi), # z -> location:x
-                                yaw), # yaw(rad)
-                                file=save)
+                    yaw = -pi/2 -(veh_yaw-ego_yaw)/180*pi
+                    if yaw < -pi: yaw = yaw + 2*pi
+                    if yaw > pi: yaw = yaw - 2*pi
+                    print('%s %s %.2f %.2f %.2f %.2f %.2f %.2f %.2f'
+                        %('Car', vehicle.attributes['role_name'], 
+                          veh_bbox.extent.z*2,veh_bbox.extent.y*2,veh_bbox.extent.x*2, # size := h,w,l
+                          -((veh_y-ego_y)*cos((ego_yaw)/180*pi)-(veh_x-ego_x)*sin((ego_yaw)/180*pi)), # x -> location:-y
+                          -((veh_z+veh_bbox.location.z)-(ego_z+lidar_height)), # y -> location:-z
+                          (veh_x-ego_x)*cos((ego_yaw)/180*pi)+(veh_y-ego_y)*sin((ego_yaw)/180*pi), # z -> location:x
+                          yaw), # yaw(rad)
+                        file=save)
                 save.close()
             # set lidar @ ego
-            ego = egos[0]
-            VELO_DIR1 = os.path.join(PATH, ego.attributes['role_name'], 'object', SPLIT, 'velodyne')
-            LABEL_DIR1 = os.path.join(PATH, ego.attributes['role_name'], 'object', SPLIT, 'label_2')
+            ego1 = egos[0]
+            VELO_DIR1 = os.path.join(PATH, ego1.attributes['role_name'], 'object', SPLIT, 'velodyne')
+            LABEL_DIR1 = os.path.join(PATH, ego1.attributes['role_name'], 'object', SPLIT, 'label_2')
             if os.path.exists(VELO_DIR1) == False:
                 os.makedirs(VELO_DIR1)
             if os.path.exists(LABEL_DIR1) == False:
                 os.makedirs(LABEL_DIR1)
-            lidar_height = tan(pi/180*25)*ego.bounding_box.extent.x + ego.bounding_box.extent.z*2
-            ego_lidar_location = carla.Location(0,0, lidar_height)
+            lidar_height = tan(pi/180*25)*ego1.bounding_box.extent.x + ego1.bounding_box.extent.z*2
+            ego1_lidar_location = carla.Location(0,0, lidar_height)
             lidar_rotation = carla.Rotation(0,0,0)
-            ego_lidar_transform = carla.Transform(ego_lidar_location,lidar_rotation)
-            ego_lidar = world.spawn_actor(lidar_bp,ego_lidar_transform,attach_to=ego,attachment_type=carla.AttachmentType.Rigid)
-            sensors_list.append(ego_lidar)
+            ego1_lidar_transform = carla.Transform(ego1_lidar_location,lidar_rotation)
+            ego1_lidar = world.spawn_actor(lidar_bp,ego1_lidar_transform,attach_to=ego1,attachment_type=carla.AttachmentType.Rigid)
+            sensors_list.append(ego1_lidar)
             # lidar : listen
-            ego_lidar.listen(lambda lidar: ego_lidar_callback(lidar,VELO_DIR1,LABEL_DIR1))
-            ego = egos[1]
-            VELO_DIR2 = os.path.join(PATH, ego.attributes['role_name'], 'object', SPLIT, 'velodyne')
-            LABEL_DIR2 = os.path.join(PATH, ego.attributes['role_name'], 'object', SPLIT, 'label_2')
+            ego1_lidar.listen(lambda lidar: ego_lidar_callback(lidar,VELO_DIR1,LABEL_DIR1,ego1))
+            ego2 = egos[1]
+            VELO_DIR2 = os.path.join(PATH, ego2.attributes['role_name'], 'object', SPLIT, 'velodyne')
+            LABEL_DIR2 = os.path.join(PATH, ego2.attributes['role_name'], 'object', SPLIT, 'label_2')
             if os.path.exists(VELO_DIR2) == False:
                 os.makedirs(VELO_DIR2)
             if os.path.exists(LABEL_DIR2) == False:
                 os.makedirs(LABEL_DIR2)
-            lidar_height = tan(pi/180*25)*ego.bounding_box.extent.x + ego.bounding_box.extent.z*2
-            ego_lidar_location = carla.Location(0,0, lidar_height)
+            lidar_height = tan(pi/180*25)*ego2.bounding_box.extent.x + ego2.bounding_box.extent.z*2
+            ego2_lidar_location = carla.Location(0,0, lidar_height)
             lidar_rotation = carla.Rotation(0,0,0)
-            ego_lidar_transform = carla.Transform(ego_lidar_location,lidar_rotation)
-            ego_lidar = world.spawn_actor(lidar_bp,ego_lidar_transform,attach_to=ego,attachment_type=carla.AttachmentType.Rigid)
-            sensors_list.append(ego_lidar)
+            ego2_lidar_transform = carla.Transform(ego2_lidar_location,lidar_rotation)
+            ego2_lidar = world.spawn_actor(lidar_bp,ego2_lidar_transform,attach_to=ego2,attachment_type=carla.AttachmentType.Rigid)
+            sensors_list.append(ego2_lidar)
             # lidar : listen
-            ego_lidar.listen(lambda lidar: ego_lidar_callback(lidar,VELO_DIR2,LABEL_DIR2))
+            ego2_lidar.listen(lambda lidar: ego_lidar_callback(lidar,VELO_DIR2,LABEL_DIR2,ego2))
         
 
         if args.camera:
