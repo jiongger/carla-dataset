@@ -63,6 +63,22 @@ class bbox3d(object):
             self.ry, self.label
         )
     
+    def get_location(self):
+        try:
+            import transformer
+            return transformer.Location(x=self.x,y=self.y,z=self.z)
+        except ImportError:
+            import numpy as np
+            return np.array([self.x,self.y,self.z])
+
+    def get_size(self):
+        try:
+            import transformer
+            return transformer.Size(length=self.l,width=self.w,height=self.h)
+        except ImportError:
+            import numpy as np
+            return np.array([self.h,self.w,self.l])
+    
     def __str__(self):
         return self.label if self.label is not None \
             else 'bbox3d: (x=%.2f,y=%.2f,z=%.2f,h=%.2f,w=%.2f,l=%.2f,ry=%.2f)' \

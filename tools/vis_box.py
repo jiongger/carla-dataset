@@ -25,7 +25,7 @@ def draw_boxes2d(image, label_name, color=(255,0,0), width=4, filter=None, coord
     return image
 
 
-def draw_box3d(image, x, y, z, h, w, l, ry, color=(0,255,0), width=2, cube=True, flatten=False):
+def draw_box3d(image, x, y, z, h, w, l, ry, color=(0,255,0), width=2, cube=True, flatten=False, debug=False):
     import project_utils as P
     from math import sin,cos,pi
 
@@ -78,10 +78,13 @@ def draw_box3d(image, x, y, z, h, w, l, ry, color=(0,255,0), width=2, cube=True,
         y_min = np.min(pts_box[:,1])
         cv.rectangle(image, (x_min,y_min), (x_max,y_max), color, width)
 
-    return image
+    if debug:
+        return image, [pts, pts_box]
+    else:
+        return image
 
 
-def draw_boxes3d(image, label_name, color=(0,255,0), width=2, filter=None, cube=True, flatten=False):
+def draw_boxes3d(image, label_name, color=(0,255,0), width=2, filter=None, cube=True, flatten=False, debug=False):
     import bbox3d
     labels = open(label_name, 'r').readlines()
     try:
@@ -90,31 +93,56 @@ def draw_boxes3d(image, label_name, color=(0,255,0), width=2, filter=None, cube=
         bboxes = [ bbox3d.from_simplified_annotation(label) for label in labels ]
     if cube == False and flatten == False:
         cube = True
+    box_list = []
 
     for bbox in bboxes:
         if 0 <= bbox.z <= 70.4 and -40 <= bbox.x <= 40:
-            image = draw_box3d(image=image,
-                               x=bbox.x,
-                               y=bbox.y,
-                               z=bbox.z,
-                               h=bbox.h,
-                               w=bbox.w,
-                               l=bbox.l,
-                               ry=bbox.ry,
-                               color=color,
-                               width=width,
-                               cube=cube,
-                               flatten=flatten)
+            if debug:
+                image, pts = draw_box3d(image=image,
+                                        x=bbox.x,
+                                        y=bbox.y,
+                                        z=bbox.z,
+                                        h=bbox.h,
+                                        w=bbox.w,
+                                        l=bbox.l,
+                                        ry=bbox.ry,
+                                        color=color,
+                                        width=width,
+                                        cube=cube,
+                                        flatten=flatten,
+                                        debug=debug)
+                box_list.append(pts)
+            else:
+                image = draw_box3d(image=image,
+                                   x=bbox.x,
+                                   y=bbox.y,
+                                   z=bbox.z,
+                                   h=bbox.h,
+                                   w=bbox.w,
+                                   l=bbox.l,
+                                   ry=bbox.ry,
+                                   color=color,
+                                   width=width,
+                                   cube=cube,
+                                   flatten=flatten,
+                                   debug=debug)
     
-    return image
+    if debug:
+        return image, box_list
+    else:
+        return image
 
 
-def output_image(output_dir, image_name, image):
+def output_image(output_dir, image_name, image, box_list=None):
     print(os.path.join(output_dir, image_name))
+    if box_list is not None:
+        with open(os.path.join(output_dir, image_name[:-4]+'.txt'), 'w') as f:
+            for box in box_list:
+                print(box, file=f)
     return cv.imwrite(os.path.join(output_dir,image_name), image)
 
 
-def main(image_dir='', label_dir='', output_dir='output', show_image = False, coord_norm=False, filter=None, mode='2d', cube=True, flatten=False, color=(0,0,255)):
+def main(image_dir='', label_dir='', output_dir='output', show_image = False, coord_norm=False, filter=None, mode='2d', cube=True, flatten=False, color=(0,0,255), debug=False):
     assert os.path.exists(image_dir) and os.path.exists(label_dir)
     assert mode == '2d' or mode == '3d'
     
@@ -134,11 +162,15 @@ def main(image_dir='', label_dir='', output_dir='output', show_image = False, co
             if mode == '2d':
                 img = draw_boxes2d(image, os.path.join(label_dir,label_name), filter=filter, coord_norm=coord_norm, color=color)
             else:
+                box_list = None
                 if coord_norm == False:
-                    img = draw_boxes3d(image, os.path.join(label_dir,label_name), filter=filter, cube=cube, flatten=flatten, color=color)
+                    if debug:
+                        img, box_list = draw_boxes3d(image, os.path.join(label_dir,label_name), filter=filter, cube=cube, flatten=flatten, color=color, debug=debug)
+                    else:
+                        img = draw_boxes3d(image, os.path.join(label_dir,label_name), filter=filter, cube=cube, flatten=flatten, color=color, debug=debug)
                 else:
                     raise NotImplementedError
-            output_image(output_dir, image_name, img)
+            output_image(output_dir, image_name, img, box_list)
         if show_image:
             cv.imshow(image_name, img)
 
@@ -156,6 +188,7 @@ if __name__ == '__main__':
     args.add_argument('--plot3d', action='store_true', default=False)
     args.add_argument('--cube', action='store_true', default=False)
     args.add_argument('--flatten', action='store_true', default=False)
+    args.add_argument('--debug', action='store_true', default=False)
     args = args.parse_args()
     main(image_dir=args.image_dir,
          label_dir=args.label_dir,
@@ -166,4 +199,5 @@ if __name__ == '__main__':
          mode='3d' if args.plot3d else '2d',
          cube=args.cube,
          flatten=args.flatten,
-         color=args.color)
+         color=args.color,
+         debug=args.debug)
