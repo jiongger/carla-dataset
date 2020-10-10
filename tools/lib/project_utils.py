@@ -41,9 +41,6 @@ def calc_projected_pts(pts, fov=120.0, IMAGE_X=1920, IMAGE_Y=1080, Velo_Transfor
     pts_img = np.dot(pts_to_hom(pts_rect), get_P_rect_Mat(fov=fov, IMAGE_X=IMAGE_X, IMAGE_Y=IMAGE_Y, offset=offset).T)
     return (pts_img[:,0:2].T / pts_img[:,2]).T
 
-def main():
+if __name__ == '__main__': # DEBUG only
     pts = np.ones((8,3))
     print(calc_projected_pts(pts))
-
-if __name__ == '__main__': # DEBUG only
-    main()
