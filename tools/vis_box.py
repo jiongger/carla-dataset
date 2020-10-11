@@ -26,8 +26,14 @@ def draw_boxes2d(image, label_name, color=(255,0,0), width=4, filter=None, coord
 
 
 def draw_box3d(image, x, y, z, h, w, l, ry, color=(0,255,0), width=2, cube=True, flatten=False, debug=False):
-    import project_utils as P
-    from math import sin,cos,pi
+    import lib.project_utils as P
+    from math import sin,cos,pi,tan
+    ry = -ry
+    if abs(x) < 0.01 and abs(z) < 0.01:
+        if debug:
+            return image, None
+        else:
+            return image
 
     delta_x1 = cos(ry)*l/2 + sin(ry)*w/2
     delta_x2 = cos(ry)*l/2 - sin(ry)*w/2
@@ -43,6 +49,11 @@ def draw_box3d(image, x, y, z, h, w, l, ry, color=(0,255,0), width=2, cube=True,
         [x-delta_x1, y+h/2, z-delta_z1],
         [x-delta_x2, y+h/2, z-delta_z2]
     ])
+    if all(pts[:,2] - 0.8 < tan(np.radians(30)) * abs(pts[:,0])):
+        if debug:
+            return image, None
+        else:
+            return image
 
     RT_Mat = np.asarray([
         [1,0,0,0  ],
@@ -79,13 +90,13 @@ def draw_box3d(image, x, y, z, h, w, l, ry, color=(0,255,0), width=2, cube=True,
         cv.rectangle(image, (x_min,y_min), (x_max,y_max), color, width)
 
     if debug:
-        return image, [pts, pts_box]
+        return image, [[x,y,z,h,w,l], pts, pts_box]
     else:
         return image
 
 
 def draw_boxes3d(image, label_name, color=(0,255,0), width=2, filter=None, cube=True, flatten=False, debug=False):
-    import bbox3d
+    import lib.bbox3d as bbox3d
     labels = open(label_name, 'r').readlines()
     try:
         bboxes = [ bbox3d.from_kitti_annotation(label) for label in labels ]
