@@ -6,32 +6,47 @@ import lib.roipool3d.roipool3d_utils as roipool3d_utils
 import lib.object3d as object3d
 import lib.bbox3d as bbox3d
 
-def clean_up(BASE_DIR, SPLIT, skip=20):
+def clean_up(BASE_DIR, SPLIT, skip=30):
     # remove unnecessary label files
     VELO_DIR = os.path.join(BASE_DIR, 'object', SPLIT, 'velodyne')
     LABEL_DIR = os.path.join(BASE_DIR, 'object', SPLIT, 'label_2')
+    IMAGE_DIR = os.path.join(BASE_DIR, 'object', SPLIT, 'image_2')
+    IMU_FILE = os.path.join(BASE_DIR, 'imu.log')
+    TMP_FILE = os.path.join(BASE_DIR, 'imu.tmp')
     if os.path.exists(os.path.join(BASE_DIR, 'ImageSets')):
-        pass
-    else:
-        os.makedirs(os.path.join(BASE_DIR, 'ImageSets'))
+        import shutil
+        shutil.rmtree(os.path.join(BASE_DIR, 'ImageSets'))
+    os.makedirs(os.path.join(BASE_DIR, 'ImageSets'))
 
     index_file = open(os.path.join(BASE_DIR, 'ImageSets', SPLIT+'.txt'), 'w')
     label_list = os.listdir(LABEL_DIR).copy()
     label_list.sort()
+    imu = open(IMU_FILE, 'r')
+    log = open(TMP_FILE, 'w')
     for index,label_name in enumerate(label_list):
         velo_name = label_name[:-4] + '.bin'
+        img_name = label_name[:-4] + '.png'
         print(index, label_name)
+        log = imu.readline()
         if index<skip: # clean preliminatry files
             os.remove(os.path.join(LABEL_DIR, label_name))
-            if os.path.exists(os.path.join(VELO_DIR, velo_name)):
+            if os.path.exists(os.path.join(VELO_DIR, velo_name)) and os.path.exists(os.path.join(IMAGE_DIR, img_name)):
                 os.remove(os.path.join(VELO_DIR, velo_name))
+                os.remove(os.path.join(IMAGE_DIR, img_name))
+            else:
+                raise IndexError
             continue
-        if os.path.exists(os.path.join(VELO_DIR, velo_name)):
+        if os.path.exists(os.path.join(VELO_DIR, velo_name)) and os.path.exists(os.path.join(IMAGE_DIR, img_name)):
             print(label_name[:-4], file=index_file)
-            continue
+            print(log.rstrip('\n'), file=TMP_FILE)
         else:
-            os.remove(os.path.join(LABEL_DIR, label_name))
+            raise IndexError
+
     index_file.close()
+    imu.close()
+    log.close()
+    os.remove(IMU_FILE)
+    os.rename(TMP_FILE, IMU_FILE)
 
 
 def refinement(BASE_DIR, SPLIT, MINIMUM_CLUSTER_SIZE=15):
