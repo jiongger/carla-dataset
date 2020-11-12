@@ -126,7 +126,7 @@ class carla_imu(object):
                         self.ax, self.ay, self.az, self.gx, self.gy, self.gz, self.compass)
     
     def __getitem__(self, frame):
-        if isinstance(frame, int):
+        if isinstance(frame, (int,np.integer)):
             index = np.where(self.frame == frame)
             assert len(index) == 1
             return carla_imu(
@@ -139,7 +139,7 @@ class carla_imu(object):
                                   self.compass[index]
                                  ]).T
                 )
-        elif isinstance(frame, slice) or hasattr(frame, '__iter__'):
+        elif isinstance(frame, slice) or hasattr(frame, '__len__'):
             if isinstance(frame, slice):
                 frame_list = np.arange(frame.start, frame.stop, frame.step)
             else:
@@ -163,15 +163,17 @@ class carla_imu(object):
                                 ]).T
                 )
         else:
+            print(type(frame))
             raise IndexError
     def get_keys(self):
-        return self.frame
+        return list(self.frame.astype(int))
     
     def __iter__(self):
         return self
     def __next__(self):
         self.index += 1
         if self.index >= len(self.frame):
+            self.index = -1
             raise StopIteration
         return carla_imu(
             array=np.asarray([
@@ -225,14 +227,10 @@ if __name__ == '__main__': # DEBUG only
     for rec in imu:
         print(rec)
     print(imu.copy())
-    print(imu[3117])
-    print(imu[3117,3120,3122])
-    print(imu[3117:3190])
-    a = imu[3117:3118]
-    print(a)
-    b = imu[3120, 3122]
-    a.extend(b)
-    print(a)
+    keys = imu.get_keys()
+    print(keys[0])
+    print(imu[keys[0]])
+    print(imu[keys[0:2]])
     imu.plot_track()
     imu.plot_accelerometer()
     imu.plot_gyroscope()
