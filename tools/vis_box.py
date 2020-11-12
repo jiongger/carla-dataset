@@ -2,7 +2,7 @@ import cv2 as cv
 import numpy as np
 import os
 
-def draw_box2d(image, x, y, w, h, color=(255,0,0), width=4, coord_norm=False):
+def draw_box2d(image, x, y, w, h, color=(255,0,0), width=2, coord_norm=False):
     box_left, box_right = x - w/2, x + w/2
     box_top, box_buttom = y - h/2, y + h/2
     if coord_norm:
@@ -13,7 +13,7 @@ def draw_box2d(image, x, y, w, h, color=(255,0,0), width=4, coord_norm=False):
     return cv.rectangle(image, (round(box_left),round(box_top)), (round(box_right),round(box_buttom)), color, width)
 
 
-def draw_boxes2d(image, label_name, color=(255,0,0), width=4, filter=None, coord_norm=False):
+def draw_boxes2d(image, label_name, color=(255,0,0), width=2, filter=None, coord_norm=False):
     labels = open(label_name, 'r').readlines()
     labels = [ label.rstrip('\n').split(' ') for label in labels]
     filtered_labels = labels if filter is None else [ label for label in labels if label[0] in filter ]
@@ -153,7 +153,7 @@ def output_image(output_dir, image_name, image, box_list=None):
     return cv.imwrite(os.path.join(output_dir,image_name), image)
 
 
-def main(image_dir='', label_dir='', output_dir='output', show_image = False, coord_norm=False, filter=None, mode='2d', cube=True, flatten=False, color=(0,0,255), debug=False):
+def main(image_dir='', label_dir='', output_dir='output', show_image = False, coord_norm=False, thickness=2, filter=None, mode='2d', cube=True, flatten=False, color=(0,0,255), debug=False):
     assert os.path.exists(image_dir) and os.path.exists(label_dir)
     assert mode == '2d' or mode == '3d'
     
@@ -170,15 +170,15 @@ def main(image_dir='', label_dir='', output_dir='output', show_image = False, co
             output_image(output_dir, image_name, img)
         else:
             image = cv.imread(os.path.join(image_dir,image_name))
+            box_list = None
             if mode == '2d':
-                img = draw_boxes2d(image, os.path.join(label_dir,label_name), filter=filter, coord_norm=coord_norm, color=color)
+                img = draw_boxes2d(image, os.path.join(label_dir,label_name), filter=filter, coord_norm=coord_norm, width=thickness, color=color)
             else:
-                box_list = None
                 if coord_norm == False:
                     if debug:
-                        img, box_list = draw_boxes3d(image, os.path.join(label_dir,label_name), filter=filter, cube=cube, flatten=flatten, color=color, debug=debug)
+                        img, box_list = draw_boxes3d(image, os.path.join(label_dir,label_name), filter=filter, width=thickness, cube=cube, flatten=flatten, color=color, debug=debug)
                     else:
-                        img = draw_boxes3d(image, os.path.join(label_dir,label_name), filter=filter, cube=cube, flatten=flatten, color=color, debug=debug)
+                        img = draw_boxes3d(image, os.path.join(label_dir,label_name), filter=filter, width=thickness, cube=cube, flatten=flatten, color=color, debug=debug)
                 else:
                     raise NotImplementedError
             output_image(output_dir, image_name, img, box_list)
@@ -196,6 +196,7 @@ if __name__ == '__main__':
     args.add_argument('--coord_norm', action='store_true', default=False)
     args.add_argument('--filter', default=None, nargs='*', type=str)
     args.add_argument('--color', default=(0,0,255), nargs=3, type=int)
+    args.add_argument('--thickness', default=2, type=int)
     args.add_argument('--plot3d', action='store_true', default=False)
     args.add_argument('--cube', action='store_true', default=False)
     args.add_argument('--flatten', action='store_true', default=False)
@@ -206,6 +207,7 @@ if __name__ == '__main__':
          output_dir=args.output_dir,
          show_image=args.show_image,
          coord_norm=args.coord_norm,
+         thickness=args.thickness,
          filter=args.filter,
          mode='3d' if args.plot3d else '2d',
          cube=args.cube,
